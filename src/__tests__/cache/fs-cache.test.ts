@@ -44,3 +44,24 @@ describe('FsCache', () => {
     expect(await cache.get('invalid-key')).toBeNull();
   });
 });
+
+describe('FsCache Expiry', () => {
+  const cacheDir = './test-cache';
+  let cache: FsCache;
+
+  beforeEach(async () => {
+    await fs.mkdir(cacheDir, { recursive: true });
+    cache = new FsCache(cacheDir, 1000); // 1 second TTL
+  });
+
+  afterEach(async () => {
+    await fs.rm(cacheDir, { recursive: true, force: true });
+  });
+
+  it('should return null after the TTL has expired', async () => {
+    await cache.set('key1', 'value1');
+    expect(await cache.get('key1')).toBe('value1');
+    await new Promise((resolve) => setTimeout(resolve, 1100)); // Wait for TTL to expire
+    expect(await cache.get('key1')).toBeNull();
+  });
+});

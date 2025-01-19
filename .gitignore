@@ -1,7 +1,8 @@
 .DS_Store
 node_modules
 /dist
-repomix*.txt
+coverage/
+repomix-output.txt
 
 # local env files
 .env.local
@@ -24,4 +25,3 @@ yarn-error.log*
 .editorconfig
 /storybook-static
 .npmrc
-repomix-output.txt
