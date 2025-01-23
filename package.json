@@ -1,7 +1,7 @@
 {
   "name": "youtube-transcript-plus",
-  "version": "1.0.1",
-  "description": "Fetch transcript from a youtube video",
+  "version": "1.0.2",
+  "description": "Fetch transcript from a YouTube video",
   "type": "module",
   "main": "dist/youtube-transcript-plus.js",
   "module": "dist/youtube-transcript-plus.js",
@@ -45,11 +45,11 @@
   "files": [
     "dist/*"
   ],
-  "repository": "https://github.com/ericmmartin/youtube-transcript.git",
+  "repository": "https://github.com/ericmmartin/youtube-transcript-plus.git",
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/ericmmartin/youtube-transcript",
+  "homepage": "https://github.com/ericmmartin/youtube-transcript-plus",
   "engines": {
     "node": ">=18.0.0"
   }
