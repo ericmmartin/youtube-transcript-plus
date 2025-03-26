@@ -11,9 +11,9 @@
     "format": "prettier --write 'src/**/*.ts'",
     "test": "jest",
     "test:watch": "jest --watch",
-    "prepare": "husky"
+    "prepare": "husky install && npm run build"
   },
-  "author": "ericmmartin",
+  "author": "Jonathan Coleman",
   "keywords": [
     "youtube",
     "transcript"

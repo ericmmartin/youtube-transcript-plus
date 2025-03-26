@@ -69,6 +69,18 @@ fetchTranscript('videoId_or_URL', {
   .catch(console.error);
 ```
 
+### Disable HTTPS
+
+You can disable HTTPS by setting the `https` option to `false`. This is useful if you are using a proxy that does not support HTTPS.
+
+```javascript
+fetchTranscript('videoId_or_URL', {
+  https: false,
+})
+  .then(console.log)
+  .catch(console.error);
+```
+
 ### Language Support
 
 You can specify the language for the transcript using the `lang` option.

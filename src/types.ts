@@ -8,6 +8,7 @@ export interface TranscriptConfig {
   userAgent?: string;
   cache?: CacheStrategy;
   cacheTTL?: number;
+  https?: boolean;
   videoFetch?: (params: { url: string; lang?: string; userAgent?: string }) => Promise<Response>;
   transcriptFetch?: (params: {
     url: string;

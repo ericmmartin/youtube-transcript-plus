@@ -10,7 +10,7 @@ import {
 import { TranscriptConfig, TranscriptResponse } from './types';
 
 export class YoutubeTranscript {
-  constructor(private config?: TranscriptConfig & { cacheTTL?: number }) {}
+  constructor(private config: TranscriptConfig & { cacheTTL?: number } = { https: true }) {}
 
   async fetchTranscript(videoId: string): Promise<TranscriptResponse[]> {
     const identifier = retrieveVideoId(videoId);
@@ -33,7 +33,7 @@ export class YoutubeTranscript {
 
     // Fetch the video page
     const videoPageResponse = await videoFetch({
-      url: `https://www.youtube.com/watch?v=${identifier}`,
+      url: `${this.config?.https ? 'https' : 'http'}://www.youtube.com/watch?v=${identifier}`,
       lang: this.config?.lang,
       userAgent,
     });
@@ -88,7 +88,7 @@ export class YoutubeTranscript {
       this.config?.lang
         ? captions.captionTracks.find((track) => track.languageCode === this.config?.lang)
         : captions.captionTracks[0]
-    ).baseUrl;
+    ).baseUrl.replace('https', this.config?.https ? 'https' : 'http');
 
     // Fetch the transcript
     const transcriptResponse = await transcriptFetch({
