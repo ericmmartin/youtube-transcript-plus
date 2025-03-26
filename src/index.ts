@@ -131,5 +131,7 @@ export class YoutubeTranscript {
 export type { CacheStrategy } from './types';
 export { InMemoryCache, FsCache } from './cache';
 
+export * from './errors';
+
 // Export the static method directly for convenience
 export const fetchTranscript = YoutubeTranscript.fetchTranscript;
