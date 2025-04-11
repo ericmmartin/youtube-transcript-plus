@@ -40,6 +40,34 @@ describe('YoutubeTranscript', () => {
       YoutubeTranscriptNotAvailableLanguageError,
     );
   });
+
+  it('should construct URLs with HTTP when disableHttps is true', async () => {
+    const mockFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () =>
+        Promise.resolve(
+          '<div id="player">{"captions":{"playerCaptionsTracklistRenderer":{"captionTracks":[{"baseUrl":"https://example.com/transcript","languageCode":"en"}]}}}</div>',
+        ),
+    });
+
+    global.fetch = mockFetch;
+
+    const transcriptFetcher = new YoutubeTranscript({ disableHttps: true });
+    const videoId = 'dQw4w9WgXcQ';
+
+    try {
+      await transcriptFetcher.fetchTranscript(videoId);
+    } catch (e) {}
+
+    // Check that the URL used HTTP protocol
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringMatching(/^http:\/\/www\.youtube\.com/),
+      expect.anything(),
+    );
+
+    // Restore the original fetch
+    jest.restoreAllMocks();
+  });
 });
 
 describe('retrieveVideoId', () => {

@@ -42,6 +42,20 @@ fetchTranscript('videoId_or_URL', {
   .catch(console.error);
 ```
 
+### HTTP Support
+
+You can disable HTTPS and use HTTP instead for YouTube requests by setting the `disableHttps` option to `true`. This might be necessary in certain environments where HTTPS connections are restricted.
+
+```javascript
+fetchTranscript('videoId_or_URL', {
+  disableHttps: true, // Use HTTP instead of HTTPS
+})
+  .then(console.log)
+  .catch(console.error);
+```
+
+**Security Warning:** Using HTTP instead of HTTPS removes transport layer security and is not recommended for production environments. Only use this option when absolutely necessary.
+
 ### Custom Fetch Functions
 
 You can inject custom `videoFetch` and `transcriptFetch` functions to modify the fetch behavior, such as using a proxy or custom headers.
@@ -188,6 +202,7 @@ Fetches the transcript for a YouTube video.
   - **`userAgent`**: Custom User-Agent string.
   - **`cache`**: Custom caching strategy.
   - **`cacheTTL`**: Time-to-live for cache entries in milliseconds.
+  - **`disableHttps`**: Set to `true` to use HTTP instead of HTTPS for YouTube requests.
   - **`videoFetch`**: Custom fetch function for the video page request.
   - **`transcriptFetch`**: Custom fetch function for the transcript request.
 

@@ -31,9 +31,11 @@ export class YoutubeTranscript {
       }
     }
 
+    const protocol = this.config?.disableHttps ? 'http' : 'https';
+
     // Fetch the video page
     const videoPageResponse = await videoFetch({
-      url: `https://www.youtube.com/watch?v=${identifier}`,
+      url: `${protocol}://www.youtube.com/watch?v=${identifier}`,
       lang: this.config?.lang,
       userAgent,
     });
@@ -84,11 +86,15 @@ export class YoutubeTranscript {
       );
     }
 
-    const transcriptURL = (
+    const captionURL = (
       this.config?.lang
         ? captions.captionTracks.find((track) => track.languageCode === this.config?.lang)
         : captions.captionTracks[0]
     ).baseUrl;
+
+    const transcriptURL = this.config?.disableHttps
+      ? captionURL.replace('https://', 'http://')
+      : captionURL;
 
     // Fetch the transcript
     const transcriptResponse = await transcriptFetch({
