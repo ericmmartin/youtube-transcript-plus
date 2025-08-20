@@ -9,36 +9,48 @@ import {
 } from './errors';
 import { TranscriptConfig, TranscriptResponse } from './types';
 
+/**
+ * Implementation notes:
+ * - Keeps the public surface identical.
+ * - Internals now use YouTube Innertube `player` to discover captionTracks instead of scraping the watch HTML.
+ * - Honors `lang`, custom fetch hooks (`videoFetch`, `transcriptFetch`), and optional cache strategy.
+ */
 export class YoutubeTranscript {
   constructor(private config?: TranscriptConfig & { cacheTTL?: number }) {}
 
   async fetchTranscript(videoId: string): Promise<TranscriptResponse[]> {
     const identifier = retrieveVideoId(videoId);
-    const userAgent = this.config?.userAgent || DEFAULT_USER_AGENT;
 
-    // Use custom fetch functions if provided, otherwise use defaultFetch
-    const videoFetch = this.config?.videoFetch || defaultFetch;
-    const transcriptFetch = this.config?.transcriptFetch || defaultFetch;
+    const lang = this.config?.lang;
+    const userAgent = (this.config as any)?.userAgent ?? DEFAULT_USER_AGENT;
 
-    // Cache key based on video ID and language
-    const cacheKey = `transcript:${identifier}:${this.config?.lang || 'default'}`;
-
-    // Check cache first
-    if (this.config?.cache) {
-      const cachedTranscript = await this.config.cache.get(cacheKey);
-      if (cachedTranscript) {
-        return JSON.parse(cachedTranscript);
+    // Cache lookup (if provided)
+    const cache = (this.config as any)?.cache as
+      | {
+          get(key: string): Promise<string | null>;
+          set(key: string, value: string, ttl?: number): Promise<void>;
+        }
+      | undefined;
+    const cacheTTL = (this.config as any)?.cacheTTL as number | undefined;
+    const cacheKey = `yt:transcript:${identifier}:${lang ?? ''}`;
+    if (cache) {
+      const cached = await cache.get(cacheKey);
+      if (cached) {
+        try {
+          return JSON.parse(cached) as TranscriptResponse[];
+        } catch {
+          // ignore parse errors and continue
+        }
       }
     }
 
-    const protocol = this.config?.disableHttps ? 'http' : 'https';
-
-    // Fetch the video page
-    const videoPageResponse = await videoFetch({
-      url: `${protocol}://www.youtube.com/watch?v=${identifier}`,
-      lang: this.config?.lang,
-      userAgent,
-    });
+    // 1) Fetch the watch page to extract an Innertube API key (no interface change)
+    // Decide protocol once and reuse
+    const protocol = (this.config as any)?.disableHttps ? 'http' : 'https';
+    const watchUrl = `${protocol}://www.youtube.com/watch?v=${identifier}`;
+    const videoPageResponse = (this.config as any)?.videoFetch
+      ? await (this.config as any).videoFetch({ url: watchUrl, lang, userAgent })
+      : await defaultFetch({ url: watchUrl, lang, userAgent });
 
     if (!videoPageResponse.ok) {
       throw new YoutubeTranscriptVideoUnavailableError(identifier);
@@ -46,90 +58,139 @@ export class YoutubeTranscript {
 
     const videoPageBody = await videoPageResponse.text();
 
-    // Parse the video page to extract captions
-    const splittedHTML = videoPageBody.split('"captions":');
-
-    if (splittedHTML.length <= 1) {
-      if (videoPageBody.includes('class="g-recaptcha"')) {
-        throw new YoutubeTranscriptTooManyRequestError();
-      }
-      if (!videoPageBody.includes('"playabilityStatus":')) {
-        throw new YoutubeTranscriptVideoUnavailableError(identifier);
-      }
-      throw new YoutubeTranscriptDisabledError(identifier);
+    // Basic bot/recaptcha detection preserves old error behavior
+    if (videoPageBody.includes('class="g-recaptcha"')) {
+      throw new YoutubeTranscriptTooManyRequestError();
     }
 
-    const captions = (() => {
-      try {
-        return JSON.parse(splittedHTML[1].split(',"videoDetails')[0].replace('\n', ''));
-      } catch (e) {
-        return undefined;
-      }
-    })()?.['playerCaptionsTracklistRenderer'];
+    // 2) Extract Innertube API key from the page
+    const apiKeyMatch =
+      videoPageBody.match(/"INNERTUBE_API_KEY":"([^"]+)"/) ||
+      videoPageBody.match(/INNERTUBE_API_KEY\\":\\"([^\\"]+)\\"/);
 
-    if (!captions) {
-      throw new YoutubeTranscriptDisabledError(identifier);
+    if (!apiKeyMatch) {
+      // If captions JSON wasn't present previously and we also can't find an API key,
+      // retain the disabled semantics for compatibility.
+      throw new YoutubeTranscriptNotAvailableError(identifier);
+    }
+    const apiKey = apiKeyMatch[1];
+
+    // 3) Call Innertube player as ANDROID client to retrieve captionTracks
+    const playerEndpoint = `https://www.youtube.com/youtubei/v1/player?key=${apiKey}`;
+    const playerBody = {
+      context: {
+        client: {
+          clientName: 'ANDROID',
+          clientVersion: '20.10.38',
+        },
+      },
+      videoId: identifier,
+    };
+
+    // Use global fetch for the POST. No public interface change.
+    const playerRes = await fetch(playerEndpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': userAgent,
+        ...(lang ? { 'Accept-Language': lang } : {}),
+      },
+      body: JSON.stringify(playerBody),
+    });
+
+    if (!playerRes.ok) {
+      throw new YoutubeTranscriptVideoUnavailableError(identifier);
     }
 
-    if (!('captionTracks' in captions)) {
+    const playerJson: any = await playerRes.json();
+
+    const tracklist =
+      playerJson?.captions?.playerCaptionsTracklistRenderer ??
+      playerJson?.playerCaptionsTracklistRenderer;
+
+    const tracks = tracklist?.captionTracks;
+
+    const isPlayableOk = playerJson?.playabilityStatus?.status === 'OK';
+
+    // If `captions` is entirely missing, treat as "not available"
+    if (!playerJson?.captions || !tracklist) {
+      // If video is playable but captions aren’t provided, treat as "disabled"
+      if (isPlayableOk) {
+        throw new YoutubeTranscriptDisabledError(identifier);
+      }
+      // Otherwise we can’t assert they’re disabled; treat as "not available"
       throw new YoutubeTranscriptNotAvailableError(identifier);
     }
 
-    if (
-      this.config?.lang &&
-      !captions.captionTracks.some((track) => track.languageCode === this.config?.lang)
-    ) {
-      throw new YoutubeTranscriptNotAvailableLanguageError(
-        this.config?.lang,
-        captions.captionTracks.map((track) => track.languageCode),
-        identifier,
-      );
+    // If `captions` exists but there are zero tracks, treat as "disabled"
+    if (!Array.isArray(tracks) || tracks.length === 0) {
+      throw new YoutubeTranscriptDisabledError(identifier);
     }
 
-    const captionURL = (
-      this.config?.lang
-        ? captions.captionTracks.find((track) => track.languageCode === this.config?.lang)
-        : captions.captionTracks[0]
-    ).baseUrl;
+    // Respect requested language or fallback to first track
+    const selectedTrack = lang ? tracks.find((t: any) => t.languageCode === lang) : tracks[0];
 
-    const transcriptURL = this.config?.disableHttps
-      ? captionURL.replace('https://', 'http://')
-      : captionURL;
+    if (!selectedTrack) {
+      const available = tracks.map((t: any) => t.languageCode).filter(Boolean);
+      throw new YoutubeTranscriptNotAvailableLanguageError(lang!, available, identifier);
+    }
 
-    // Fetch the transcript
-    const transcriptResponse = await transcriptFetch({
-      url: transcriptURL,
-      lang: this.config?.lang,
-      userAgent,
-    });
+    // 4) Build transcript URL; prefer XML by stripping fmt if present
+    let transcriptURL: string = selectedTrack.baseUrl || selectedTrack.url;
+    if (!transcriptURL) {
+      throw new YoutubeTranscriptNotAvailableError(identifier);
+    }
+    transcriptURL = transcriptURL.replace(/&fmt=[^&]+$/, '');
+
+    if ((this.config as any)?.disableHttps) {
+      transcriptURL = transcriptURL.replace(/^https:\/\//, 'http://');
+    }
+
+    // 5) Fetch transcript XML using the same hook surface as before
+    const transcriptResponse = (this.config as any)?.transcriptFetch
+      ? await (this.config as any).transcriptFetch({ url: transcriptURL, lang, userAgent })
+      : await defaultFetch({ url: transcriptURL, lang, userAgent });
 
     if (!transcriptResponse.ok) {
+      // Preserve legacy behavior
+      if (transcriptResponse.status === 429) {
+        throw new YoutubeTranscriptTooManyRequestError();
+      }
       throw new YoutubeTranscriptNotAvailableError(identifier);
     }
 
     const transcriptBody = await transcriptResponse.text();
+
+    // 6) Parse XML into the existing TranscriptResponse shape
     const results = [...transcriptBody.matchAll(RE_XML_TRANSCRIPT)];
-    const transcript = results.map((result) => ({
-      text: result[3],
-      duration: parseFloat(result[2]),
-      offset: parseFloat(result[1]),
-      lang: this.config?.lang ?? captions.captionTracks[0].languageCode,
+    const transcript: TranscriptResponse[] = results.map((m) => ({
+      text: m[3],
+      duration: parseFloat(m[2]),
+      offset: parseFloat(m[1]),
+      lang: lang ?? selectedTrack.languageCode,
     }));
 
-    // Store in cache if a strategy is provided
-    if (this.config?.cache) {
-      await this.config.cache.set(cacheKey, JSON.stringify(transcript), this.config.cacheTTL);
+    if (transcript.length === 0) {
+      throw new YoutubeTranscriptNotAvailableError(identifier);
+    }
+
+    // Cache store
+    if (cache) {
+      try {
+        await cache.set(cacheKey, JSON.stringify(transcript), cacheTTL);
+      } catch {
+        // non-fatal
+      }
     }
 
     return transcript;
   }
 
-  // Add static method for new usage pattern
   static async fetchTranscript(
     videoId: string,
     config?: TranscriptConfig,
   ): Promise<TranscriptResponse[]> {
-    const instance = new YoutubeTranscript(config);
+    const instance = new YoutubeTranscript(config as any);
     return instance.fetchTranscript(videoId);
   }
 }
