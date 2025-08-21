@@ -7,7 +7,7 @@ import {
   YoutubeTranscriptNotAvailableError,
   YoutubeTranscriptNotAvailableLanguageError,
 } from './errors';
-import { TranscriptConfig, TranscriptResponse } from './types';
+import { TranscriptConfig, TranscriptResponse, FetchParams } from './types';
 
 /**
  * Implementation notes:
@@ -16,22 +16,17 @@ import { TranscriptConfig, TranscriptResponse } from './types';
  * - Honors `lang`, custom fetch hooks (`videoFetch`, `transcriptFetch`), and optional cache strategy.
  */
 export class YoutubeTranscript {
-  constructor(private config?: TranscriptConfig & { cacheTTL?: number }) {}
+  constructor(private config?: TranscriptConfig) {}
 
   async fetchTranscript(videoId: string): Promise<TranscriptResponse[]> {
     const identifier = retrieveVideoId(videoId);
 
     const lang = this.config?.lang;
-    const userAgent = (this.config as any)?.userAgent ?? DEFAULT_USER_AGENT;
+    const userAgent = this.config?.userAgent ?? DEFAULT_USER_AGENT;
 
     // Cache lookup (if provided)
-    const cache = (this.config as any)?.cache as
-      | {
-          get(key: string): Promise<string | null>;
-          set(key: string, value: string, ttl?: number): Promise<void>;
-        }
-      | undefined;
-    const cacheTTL = (this.config as any)?.cacheTTL as number | undefined;
+    const cache = this.config?.cache;
+    const cacheTTL = this.config?.cacheTTL;
     const cacheKey = `yt:transcript:${identifier}:${lang ?? ''}`;
     if (cache) {
       const cached = await cache.get(cacheKey);
@@ -46,10 +41,10 @@ export class YoutubeTranscript {
 
     // 1) Fetch the watch page to extract an Innertube API key (no interface change)
     // Decide protocol once and reuse
-    const protocol = (this.config as any)?.disableHttps ? 'http' : 'https';
+    const protocol = this.config?.disableHttps ? 'http' : 'https';
     const watchUrl = `${protocol}://www.youtube.com/watch?v=${identifier}`;
-    const videoPageResponse = (this.config as any)?.videoFetch
-      ? await (this.config as any).videoFetch({ url: watchUrl, lang, userAgent })
+    const videoPageResponse = this.config?.videoFetch
+      ? await this.config.videoFetch({ url: watchUrl, lang, userAgent })
       : await defaultFetch({ url: watchUrl, lang, userAgent });
 
     if (!videoPageResponse.ok) {
@@ -87,17 +82,18 @@ export class YoutubeTranscript {
       videoId: identifier,
     };
 
-    // Use global fetch for the POST. No public interface change.
-    // Use configurable fetch for the POST to allow custom fetch logic.
-    const playerRes = await fetch(playerEndpoint, {
+    // Use configurable playerFetch for the POST to allow custom fetch logic.
+    const playerFetchParams: FetchParams = {
+      url: playerEndpoint,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': userAgent,
-        ...(lang ? { 'Accept-Language': lang } : {}),
-      },
+      lang,
+      userAgent,
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(playerBody),
-    });
+    };
+    const playerRes = this.config?.playerFetch
+      ? await this.config.playerFetch(playerFetchParams)
+      : await defaultFetch(playerFetchParams);
 
     if (!playerRes.ok) {
       throw new YoutubeTranscriptVideoUnavailableError(identifier);
@@ -143,13 +139,13 @@ export class YoutubeTranscript {
     }
     transcriptURL = transcriptURL.replace(/&fmt=[^&]+$/, '');
 
-    if ((this.config as any)?.disableHttps) {
+    if (this.config?.disableHttps) {
       transcriptURL = transcriptURL.replace(/^https:\/\//, 'http://');
     }
 
     // 5) Fetch transcript XML using the same hook surface as before
-    const transcriptResponse = (this.config as any)?.transcriptFetch
-      ? await (this.config as any).transcriptFetch({ url: transcriptURL, lang, userAgent })
+    const transcriptResponse = this.config?.transcriptFetch
+      ? await this.config.transcriptFetch({ url: transcriptURL, lang, userAgent })
       : await defaultFetch({ url: transcriptURL, lang, userAgent });
 
     if (!transcriptResponse.ok) {
@@ -191,7 +187,7 @@ export class YoutubeTranscript {
     videoId: string,
     config?: TranscriptConfig,
   ): Promise<TranscriptResponse[]> {
-    const instance = new YoutubeTranscript(config as any);
+    const instance = new YoutubeTranscript(config);
     return instance.fetchTranscript(videoId);
   }
 }

@@ -68,6 +68,98 @@ describe('YoutubeTranscript', () => {
     // Restore the original fetch
     jest.restoreAllMocks();
   });
+
+  it('should use custom playerFetch when provided', async () => {
+    const mockPlayerFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [{ baseUrl: 'https://example.com/transcript', languageCode: 'en' }],
+            },
+          },
+          playabilityStatus: { status: 'OK' },
+        }),
+    });
+
+    const mockVideoFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{"INNERTUBE_API_KEY":"test-key"}'),
+    });
+
+    const mockTranscriptFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('<text start="0" dur="1.5">Hello world</text>'),
+    });
+
+    const transcriptFetcher = new YoutubeTranscript({
+      playerFetch: mockPlayerFetch,
+      videoFetch: mockVideoFetch,
+      transcriptFetch: mockTranscriptFetch,
+    });
+
+    const result = await transcriptFetcher.fetchTranscript('dQw4w9WgXcQ');
+
+    expect(mockPlayerFetch).toHaveBeenCalledWith({
+      url: expect.stringContaining('youtubei/v1/player'),
+      method: 'POST',
+      lang: undefined,
+      userAgent: expect.any(String),
+      headers: { 'Content-Type': 'application/json' },
+      body: expect.stringContaining('"videoId":"dQw4w9WgXcQ"'),
+    });
+    expect(result).toEqual([{ text: 'Hello world', duration: 1.5, offset: 0, lang: 'en' }]);
+  });
+
+  it('should use custom videoFetch and transcriptFetch when provided', async () => {
+    const mockVideoFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{"INNERTUBE_API_KEY":"custom-key"}'),
+    });
+
+    const mockTranscriptFetch = jest.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('<text start="0" dur="2.0">Custom transcript</text>'),
+    });
+
+    // Mock global fetch for playerFetch since we're not providing custom playerFetch
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [{ baseUrl: 'https://example.com/transcript', languageCode: 'fr' }],
+            },
+          },
+          playabilityStatus: { status: 'OK' },
+        }),
+    });
+
+    const transcriptFetcher = new YoutubeTranscript({
+      videoFetch: mockVideoFetch,
+      transcriptFetch: mockTranscriptFetch,
+      lang: 'fr',
+      userAgent: 'CustomAgent/1.0',
+    });
+
+    const result = await transcriptFetcher.fetchTranscript('dQw4w9WgXcQ');
+
+    expect(mockVideoFetch).toHaveBeenCalledWith({
+      url: expect.stringContaining('youtube.com/watch'),
+      lang: 'fr',
+      userAgent: 'CustomAgent/1.0',
+    });
+    expect(mockTranscriptFetch).toHaveBeenCalledWith({
+      url: expect.stringContaining('example.com/transcript'),
+      lang: 'fr',
+      userAgent: 'CustomAgent/1.0',
+    });
+    expect(result).toEqual([{ text: 'Custom transcript', duration: 2.0, offset: 0, lang: 'fr' }]);
+
+    jest.restoreAllMocks();
+  });
 });
 
 describe('retrieveVideoId', () => {

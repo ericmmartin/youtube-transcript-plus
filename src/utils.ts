@@ -1,5 +1,6 @@
 import { DEFAULT_USER_AGENT, RE_YOUTUBE } from './constants';
 import { YoutubeTranscriptInvalidVideoIdError } from './errors';
+import { FetchParams } from './types';
 
 export function retrieveVideoId(videoId: string): string {
   if (videoId.length === 11) {
@@ -12,19 +13,23 @@ export function retrieveVideoId(videoId: string): string {
   throw new YoutubeTranscriptInvalidVideoIdError();
 }
 
-export async function defaultFetch({
-  url,
-  lang,
-  userAgent,
-}: {
-  url: string;
-  lang?: string;
-  userAgent?: string;
-}): Promise<Response> {
-  return fetch(url, {
-    headers: {
-      ...(lang && { 'Accept-Language': lang }),
-      'User-Agent': userAgent || DEFAULT_USER_AGENT,
-    },
-  });
+export async function defaultFetch(params: FetchParams): Promise<Response> {
+  const { url, lang, userAgent, method = 'GET', body, headers = {} } = params;
+
+  const fetchHeaders: Record<string, string> = {
+    'User-Agent': userAgent || DEFAULT_USER_AGENT,
+    ...(lang && { 'Accept-Language': lang }),
+    ...headers,
+  };
+
+  const fetchOptions: RequestInit = {
+    method,
+    headers: fetchHeaders,
+  };
+
+  if (body && method === 'POST') {
+    fetchOptions.body = body;
+  }
+
+  return fetch(url, fetchOptions);
 }

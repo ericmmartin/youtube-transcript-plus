@@ -58,11 +58,16 @@ fetchTranscript('videoId_or_URL', {
 
 ### Custom Fetch Functions
 
-You can inject custom `videoFetch` and `transcriptFetch` functions to modify the fetch behavior, such as using a proxy or custom headers.
+You can inject custom `videoFetch`, `playerFetch`, and `transcriptFetch` functions to modify the fetch behavior, such as using a proxy or custom headers. The library makes three types of HTTP requests:
+
+1. **`videoFetch`**: Fetches the YouTube video page (GET request)
+2. **`playerFetch`**: Calls YouTube's Innertube API to get caption tracks (POST request)
+3. **`transcriptFetch`**: Downloads the actual transcript data (GET request)
 
 ```javascript
 fetchTranscript('videoId_or_URL', {
   videoFetch: async ({ url, lang, userAgent }) => {
+    // Custom logic for video page fetch (GET)
     return fetch(`https://my-proxy-server.com/?url=${encodeURIComponent(url)}`, {
       headers: {
         ...(lang && { 'Accept-Language': lang }),
@@ -70,7 +75,20 @@ fetchTranscript('videoId_or_URL', {
       },
     });
   },
+  playerFetch: async ({ url, method, body, headers, lang, userAgent }) => {
+    // Custom logic for Innertube API call (POST)
+    return fetch(`https://my-proxy-server.com/?url=${encodeURIComponent(url)}`, {
+      method,
+      headers: {
+        ...(lang && { 'Accept-Language': lang }),
+        'User-Agent': userAgent,
+        ...headers,
+      },
+      body,
+    });
+  },
   transcriptFetch: async ({ url, lang, userAgent }) => {
+    // Custom logic for transcript data fetch (GET)
     return fetch(`https://my-proxy-server.com/?url=${encodeURIComponent(url)}`, {
       headers: {
         ...(lang && { 'Accept-Language': lang }),
@@ -187,6 +205,7 @@ The repository includes several example files in the `example/` directory to dem
 3. **`fs-caching-usage.js`**: Demonstrates how to use the `FsCache` to cache transcripts on the file system with a 1-day TTL.
 4. **`language-usage.js`**: Shows how to fetch a transcript in a specific language (e.g., French).
 5. **`proxy-usage.js`**: Demonstrates how to use a proxy server to fetch transcripts, which can be useful for bypassing rate limits or accessing restricted content.
+6. **`custom-fetch-usage.js`**: Shows how to use all three custom fetch functions (`videoFetch`, `playerFetch`, `transcriptFetch`) with logging and custom headers.
 
 These examples can be found in the `example/` directory of the repository.
 
@@ -203,8 +222,9 @@ Fetches the transcript for a YouTube video.
   - **`cache`**: Custom caching strategy.
   - **`cacheTTL`**: Time-to-live for cache entries in milliseconds.
   - **`disableHttps`**: Set to `true` to use HTTP instead of HTTPS for YouTube requests.
-  - **`videoFetch`**: Custom fetch function for the video page request.
-  - **`transcriptFetch`**: Custom fetch function for the transcript request.
+  - **`videoFetch`**: Custom fetch function for the video page request (GET).
+  - **`playerFetch`**: Custom fetch function for the YouTube Innertube API request (POST).
+  - **`transcriptFetch`**: Custom fetch function for the transcript data request (GET).
 
 Returns a `Promise<TranscriptResponse[]>` where each item in the array represents a transcript segment with the following properties:
 

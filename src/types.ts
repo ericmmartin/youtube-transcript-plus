@@ -3,18 +3,24 @@ export interface CacheStrategy {
   set(key: string, value: string, ttl?: number): Promise<void>;
 }
 
+export interface FetchParams {
+  url: string;
+  lang?: string;
+  userAgent?: string;
+  method?: 'GET' | 'POST';
+  body?: string;
+  headers?: Record<string, string>;
+}
+
 export interface TranscriptConfig {
   lang?: string;
   userAgent?: string;
   cache?: CacheStrategy;
   cacheTTL?: number;
   disableHttps?: boolean;
-  videoFetch?: (params: { url: string; lang?: string; userAgent?: string }) => Promise<Response>;
-  transcriptFetch?: (params: {
-    url: string;
-    lang?: string;
-    userAgent?: string;
-  }) => Promise<Response>;
+  videoFetch?: (params: FetchParams) => Promise<Response>;
+  transcriptFetch?: (params: FetchParams) => Promise<Response>;
+  playerFetch?: (params: FetchParams) => Promise<Response>;
 }
 
 export interface TranscriptResponse {
