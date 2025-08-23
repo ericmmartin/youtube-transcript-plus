@@ -70,6 +70,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `cache` - Custom caching strategy
 - `cacheTTL` - Cache time-to-live in milliseconds
 - `videoFetch` - Custom fetch function for video page
+- `playerFetch` - Custom fetch function for YouTube Innertube API
 - `transcriptFetch` - Custom fetch function for transcript data
 
 ## Build Configuration
