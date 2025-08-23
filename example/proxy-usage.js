@@ -18,6 +18,18 @@ async function main() {
           agent: new HttpsProxyAgent(proxyUrl),
         });
       },
+      playerFetch: async ({ url, method, body, headers, lang, userAgent }) => {
+        return fetch(url, {
+          method,
+          headers: {
+            'User-Agent': userAgent,
+            ...(lang && { 'Accept-Language': lang }),
+            ...headers,
+          },
+          body,
+          agent: new HttpsProxyAgent(proxyUrl),
+        });
+      },
       transcriptFetch: async ({ url, lang, userAgent }) => {
         return fetch(url, {
           headers: {

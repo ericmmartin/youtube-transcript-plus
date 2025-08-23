@@ -1,11 +1,11 @@
 import { CacheStrategy } from '../types';
+import { DEFAULT_CACHE_TTL } from '../constants';
 
 export class InMemoryCache implements CacheStrategy {
   private cache = new Map<string, { value: string; expires: number }>();
   private defaultTTL: number;
 
-  constructor(defaultTTL = 3600000) {
-    // 1 hour default TTL
+  constructor(defaultTTL = DEFAULT_CACHE_TTL) {
     this.defaultTTL = defaultTTL;
   }
 

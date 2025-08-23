@@ -1,12 +1,13 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { CacheStrategy } from '../types';
+import { DEFAULT_CACHE_TTL } from '../constants';
 
 export class FsCache implements CacheStrategy {
   private cacheDir: string;
   private defaultTTL: number;
 
-  constructor(cacheDir = './cache', defaultTTL = 3600000) {
+  constructor(cacheDir = './cache', defaultTTL = DEFAULT_CACHE_TTL) {
     this.cacheDir = cacheDir;
     this.defaultTTL = defaultTTL;
     fs.mkdir(cacheDir, { recursive: true }).catch(() => {});
