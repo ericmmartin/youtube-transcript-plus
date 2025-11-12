@@ -2,7 +2,7 @@
   "compilerOptions": {
     "target": "ES2015",
     "module": "esnext",
-    "strict": false,
+    "strict": true,
     "declaration": true,
     "declarationDir": "dist",
     "outDir": "dist",

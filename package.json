@@ -32,15 +32,15 @@
     "@types/jest": "^30.0.0",
     "https-proxy-agent": "^7.0.6",
     "husky": "^9.1.7",
-    "jest": "^30.0.5",
-    "lint-staged": "^16.1.5",
+    "jest": "^30.2.0",
+    "lint-staged": "^16.2.6",
     "prettier": "^3.6.2",
-    "rollup": "^4.46.4",
+    "rollup": "^4.53.2",
     "rollup-plugin-typescript": "^1.0.1",
     "rollup-plugin-typescript2": "^0.36.0",
-    "ts-jest": "^29.4.1",
+    "ts-jest": "^29.4.5",
     "tslib": "^2.8.1",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   },
   "files": [
     "dist/*"
