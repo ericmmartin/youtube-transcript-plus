@@ -57,7 +57,7 @@ describe('YoutubeTranscript', () => {
 
     try {
       await transcriptFetcher.fetchTranscript(videoId);
-    } catch (e) {}
+    } catch (_e) { }
 
     // Check that the URL used HTTP protocol
     expect(mockFetch).toHaveBeenCalledWith(
