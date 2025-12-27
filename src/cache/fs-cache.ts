@@ -10,7 +10,7 @@ export class FsCache implements CacheStrategy {
   constructor(cacheDir = './cache', defaultTTL = DEFAULT_CACHE_TTL) {
     this.cacheDir = cacheDir;
     this.defaultTTL = defaultTTL;
-    fs.mkdir(cacheDir, { recursive: true }).catch(() => {});
+    fs.mkdir(cacheDir, { recursive: true }).catch(() => { });
   }
 
   async get(key: string): Promise<string | null> {
@@ -22,7 +22,7 @@ export class FsCache implements CacheStrategy {
         return value;
       }
       await fs.unlink(filePath);
-    } catch (error) {}
+    } catch (_error) { }
     return null;
   }
 
