@@ -22,7 +22,7 @@ export class FsCache implements CacheStrategy {
         return value;
       }
       await fs.unlink(filePath);
-    } catch (error) {}
+    } catch (_error) {}
     return null;
   }
 

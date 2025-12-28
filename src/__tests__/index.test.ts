@@ -17,8 +17,7 @@ const fixturesDir = path.join(process.cwd(), 'src', '__tests__', 'fixtures');
 const VIDEO_ID = 'TESTVIDEOID';
 const API_KEY = 'test-key';
 
-const loadFixture = (name: string): string =>
-  fs.readFileSync(path.join(fixturesDir, name), 'utf8');
+const loadFixture = (name: string): string => fs.readFileSync(path.join(fixturesDir, name), 'utf8');
 const loadJsonFixture = (name: string): unknown => JSON.parse(loadFixture(name));
 
 const mockWatchPage = (protocol = 'https', body?: string) =>
