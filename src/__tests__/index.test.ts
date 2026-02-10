@@ -2,15 +2,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import nock from 'nock';
 
-import { YoutubeTranscript } from '../index';
+import { YoutubeTranscript, fetchTranscript } from '../index';
 import {
   YoutubeTranscriptInvalidVideoIdError,
   YoutubeTranscriptDisabledError,
   YoutubeTranscriptNotAvailableLanguageError,
   YoutubeTranscriptTooManyRequestError,
   YoutubeTranscriptNotAvailableError,
+  YoutubeTranscriptVideoUnavailableError,
 } from '../errors';
 import { retrieveVideoId } from '../utils';
+import { CacheStrategy } from '../types';
 
 const fixturesDir = path.join(process.cwd(), 'src', '__tests__', 'fixtures');
 
@@ -26,17 +28,17 @@ const mockWatchPage = (protocol = 'https', body?: string) =>
     .query({ v: VIDEO_ID })
     .reply(200, body ?? loadFixture('watch.html'));
 
-const mockPlayer = (body: unknown) =>
-  nock('https://www.youtube.com')
+const mockPlayer = (body: unknown, protocol = 'https') =>
+  nock(`${protocol}://www.youtube.com`)
     .post('/youtubei/v1/player')
     .query({ key: API_KEY })
     .reply(200, body);
 
-const mockTranscript = (protocol = 'https') =>
+const mockTranscript = (protocol = 'https', fixture = 'transcript.xml') =>
   nock(`${protocol}://www.youtube.com`)
     .get('/api/timedtext')
     .query({ lang: 'en', v: VIDEO_ID })
-    .reply(200, loadFixture('transcript.xml'));
+    .reply(200, loadFixture(fixture));
 
 const originalFetch = global.fetch;
 
@@ -72,6 +74,20 @@ describe('YoutubeTranscript', () => {
     ]);
   });
 
+  it('should decode XML entities in transcript text', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript('https', 'transcript-entities.xml');
+
+    const transcriptFetcher = new YoutubeTranscript();
+    const transcript = await transcriptFetcher.fetchTranscript(VIDEO_ID);
+
+    expect(transcript).toEqual([
+      { text: 'rock & roll', duration: 1.5, offset: 0, lang: 'en' },
+      { text: 'it\'s a "test"', duration: 2.0, offset: 1.5, lang: 'en' },
+    ]);
+  });
+
   it('should throw YoutubeTranscriptInvalidVideoIdError when video is invalid', async () => {
     const transcriptFetcher = new YoutubeTranscript();
     const videoId = 'invalidVideoId';
@@ -102,7 +118,7 @@ describe('YoutubeTranscript', () => {
 
   it('should construct URLs with HTTP when disableHttps is true', async () => {
     mockWatchPage('http');
-    mockPlayer(loadJsonFixture('player-success.json'));
+    mockPlayer(loadJsonFixture('player-success.json'), 'http');
     mockTranscript('http');
 
     const transcriptFetcher = new YoutubeTranscript({ disableHttps: true });
@@ -199,6 +215,30 @@ describe('YoutubeTranscript', () => {
     });
     expect(result).toEqual([{ text: 'Custom transcript', duration: 2.0, offset: 0, lang: 'fr' }]);
   });
+
+  it('should work via static fetchTranscript method', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const transcript = await YoutubeTranscript.fetchTranscript(VIDEO_ID);
+    expect(transcript).toEqual([
+      { text: 'Hello world', duration: 1.5, offset: 0, lang: 'en' },
+      { text: 'Second line', duration: 2.0, offset: 1.5, lang: 'en' },
+    ]);
+  });
+
+  it('should work via convenience fetchTranscript export', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const transcript = await fetchTranscript(VIDEO_ID);
+    expect(transcript).toEqual([
+      { text: 'Hello world', duration: 1.5, offset: 0, lang: 'en' },
+      { text: 'Second line', duration: 2.0, offset: 1.5, lang: 'en' },
+    ]);
+  });
 });
 
 describe('retrieveVideoId', () => {
@@ -236,6 +276,11 @@ describe('retrieveVideoId', () => {
     const url = 'https://www.google.com';
     expect(() => retrieveVideoId(url)).toThrow(YoutubeTranscriptInvalidVideoIdError);
   });
+
+  it('should reject 11-character strings with special characters', () => {
+    expect(() => retrieveVideoId('../.././../.')).toThrow(YoutubeTranscriptInvalidVideoIdError);
+    expect(() => retrieveVideoId('hello world')).toThrow(YoutubeTranscriptInvalidVideoIdError);
+  });
 });
 
 describe('YoutubeTranscript Error Handling', () => {
@@ -256,5 +301,178 @@ describe('YoutubeTranscript Error Handling', () => {
     await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(
       YoutubeTranscriptNotAvailableError,
     );
+  });
+
+  it('should throw YoutubeTranscriptVideoUnavailableError when watch page returns non-OK', async () => {
+    nock('https://www.youtube.com').get('/watch').query({ v: VIDEO_ID }).reply(404);
+
+    const transcriptFetcher = new YoutubeTranscript();
+    await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptVideoUnavailableError,
+    );
+  });
+
+  it('should throw YoutubeTranscriptVideoUnavailableError when player endpoint returns non-OK', async () => {
+    mockWatchPage();
+    nock('https://www.youtube.com')
+      .post('/youtubei/v1/player')
+      .query({ key: API_KEY })
+      .reply(500);
+
+    const transcriptFetcher = new YoutubeTranscript();
+    await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptVideoUnavailableError,
+    );
+  });
+
+  it('should throw YoutubeTranscriptTooManyRequestError when transcript fetch returns 429', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(429);
+
+    const transcriptFetcher = new YoutubeTranscript();
+    await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptTooManyRequestError,
+    );
+  });
+
+  it('should throw YoutubeTranscriptNotAvailableError when transcript fetch returns non-OK non-429', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(500);
+
+    const transcriptFetcher = new YoutubeTranscript();
+    await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptNotAvailableError,
+    );
+  });
+
+  it('should throw YoutubeTranscriptNotAvailableError when transcript body has no matches', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(200, '<transcript></transcript>');
+
+    const transcriptFetcher = new YoutubeTranscript();
+    await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptNotAvailableError,
+    );
+  });
+
+  it('should include videoId on error instances', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-not-available.json'));
+
+    const transcriptFetcher = new YoutubeTranscript();
+    try {
+      await transcriptFetcher.fetchTranscript(VIDEO_ID);
+    } catch (error) {
+      expect(error).toBeInstanceOf(YoutubeTranscriptNotAvailableError);
+      expect((error as YoutubeTranscriptNotAvailableError).videoId).toBe(VIDEO_ID);
+    }
+  });
+
+  it('should include lang and availableLangs on language error', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+
+    const transcriptFetcher = new YoutubeTranscript({ lang: 'fr' });
+    try {
+      await transcriptFetcher.fetchTranscript(VIDEO_ID);
+    } catch (error) {
+      expect(error).toBeInstanceOf(YoutubeTranscriptNotAvailableLanguageError);
+      const langError = error as YoutubeTranscriptNotAvailableLanguageError;
+      expect(langError.lang).toBe('fr');
+      expect(langError.availableLangs).toEqual(['en']);
+      expect(langError.videoId).toBe(VIDEO_ID);
+    }
+  });
+});
+
+describe('YoutubeTranscript Caching', () => {
+  it('should return cached result without making HTTP calls', async () => {
+    const cachedData = JSON.stringify([
+      { text: 'cached text', duration: 1.0, offset: 0, lang: 'en' },
+    ]);
+
+    const mockCache: CacheStrategy = {
+      get: jest.fn().mockResolvedValue(cachedData),
+      set: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const transcriptFetcher = new YoutubeTranscript({ cache: mockCache });
+    const result = await transcriptFetcher.fetchTranscript(VIDEO_ID);
+
+    expect(result).toEqual([{ text: 'cached text', duration: 1.0, offset: 0, lang: 'en' }]);
+    expect(mockCache.get).toHaveBeenCalledWith(`yt:transcript:${VIDEO_ID}:`);
+    // No HTTP calls should be made
+    expect(nock.pendingMocks()).toHaveLength(0);
+  });
+
+  it('should store result in cache after successful fetch', async () => {
+    const mockCache: CacheStrategy = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const transcriptFetcher = new YoutubeTranscript({ cache: mockCache, cacheTTL: 5000 });
+    await transcriptFetcher.fetchTranscript(VIDEO_ID);
+
+    expect(mockCache.set).toHaveBeenCalledWith(
+      `yt:transcript:${VIDEO_ID}:`,
+      expect.any(String),
+      5000,
+    );
+
+    const storedValue = JSON.parse((mockCache.set as jest.Mock).mock.calls[0][1]);
+    expect(storedValue).toEqual([
+      { text: 'Hello world', duration: 1.5, offset: 0, lang: 'en' },
+      { text: 'Second line', duration: 2.0, offset: 1.5, lang: 'en' },
+    ]);
+  });
+
+  it('should continue fetching when cache returns invalid JSON', async () => {
+    const mockCache: CacheStrategy = {
+      get: jest.fn().mockResolvedValue('not valid json{{{'),
+      set: jest.fn().mockResolvedValue(undefined),
+    };
+
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const transcriptFetcher = new YoutubeTranscript({ cache: mockCache });
+    const result = await transcriptFetcher.fetchTranscript(VIDEO_ID);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].text).toBe('Hello world');
+  });
+
+  it('should not throw when cache.set fails', async () => {
+    const mockCache: CacheStrategy = {
+      get: jest.fn().mockResolvedValue(null),
+      set: jest.fn().mockRejectedValue(new Error('disk full')),
+    };
+
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const transcriptFetcher = new YoutubeTranscript({ cache: mockCache });
+    const result = await transcriptFetcher.fetchTranscript(VIDEO_ID);
+
+    expect(result).toHaveLength(2);
   });
 });

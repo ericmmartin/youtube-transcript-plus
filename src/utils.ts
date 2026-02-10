@@ -2,8 +2,25 @@ import { DEFAULT_USER_AGENT, RE_YOUTUBE } from './constants';
 import { YoutubeTranscriptInvalidVideoIdError } from './errors';
 import { FetchParams } from './types';
 
+const RE_VIDEO_ID = /^[a-zA-Z0-9_-]{11}$/;
+
+const XML_ENTITIES: Record<string, string> = {
+  '&amp;': '&',
+  '&lt;': '<',
+  '&gt;': '>',
+  '&quot;': '"',
+  '&#39;': "'",
+  '&apos;': "'",
+};
+
+const RE_XML_ENTITY = /&(?:amp|lt|gt|quot|apos|#39);/g;
+
+export function decodeXmlEntities(text: string): string {
+  return text.replace(RE_XML_ENTITY, (match) => XML_ENTITIES[match] ?? match);
+}
+
 export function retrieveVideoId(videoId: string): string {
-  if (videoId.length === 11) {
+  if (RE_VIDEO_ID.test(videoId)) {
     return videoId;
   }
   const matchId = videoId.match(RE_YOUTUBE);

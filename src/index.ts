@@ -1,5 +1,5 @@
 import { DEFAULT_USER_AGENT, RE_XML_TRANSCRIPT } from './constants';
-import { retrieveVideoId, defaultFetch } from './utils';
+import { retrieveVideoId, defaultFetch, decodeXmlEntities } from './utils';
 import {
   YoutubeTranscriptVideoUnavailableError,
   YoutubeTranscriptTooManyRequestError,
@@ -71,7 +71,7 @@ export class YoutubeTranscript {
     const apiKey = apiKeyMatch[1];
 
     // 3) Call Innertube player as ANDROID client to retrieve captionTracks
-    const playerEndpoint = `https://www.youtube.com/youtubei/v1/player?key=${apiKey}`;
+    const playerEndpoint = `${protocol}://www.youtube.com/youtubei/v1/player?key=${apiKey}`;
     const playerBody = {
       context: {
         client: {
@@ -137,7 +137,7 @@ export class YoutubeTranscript {
     if (!transcriptURL) {
       throw new YoutubeTranscriptNotAvailableError(identifier);
     }
-    transcriptURL = transcriptURL.replace(/&fmt=[^&]+$/, '');
+    transcriptURL = transcriptURL.replace(/&fmt=[^&]+/, '');
 
     if (this.config?.disableHttps) {
       transcriptURL = transcriptURL.replace(/^https:\/\//, 'http://');
@@ -161,7 +161,7 @@ export class YoutubeTranscript {
     // 6) Parse XML into the existing TranscriptResponse shape
     const results = [...transcriptBody.matchAll(RE_XML_TRANSCRIPT)];
     const transcript: TranscriptResponse[] = results.map((m) => ({
-      text: m[3],
+      text: decodeXmlEntities(m[3]),
       duration: parseFloat(m[2]),
       offset: parseFloat(m[1]),
       lang: lang ?? selectedTrack.languageCode,
@@ -192,7 +192,7 @@ export class YoutubeTranscript {
   }
 }
 
-export type { CacheStrategy } from './types';
+export type { CacheStrategy, TranscriptConfig, TranscriptResponse, FetchParams } from './types';
 export { InMemoryCache, FsCache } from './cache';
 
 export * from './errors';
