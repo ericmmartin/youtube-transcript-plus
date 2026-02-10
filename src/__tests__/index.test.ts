@@ -314,10 +314,7 @@ describe('YoutubeTranscript Error Handling', () => {
 
   it('should throw YoutubeTranscriptVideoUnavailableError when player endpoint returns non-OK', async () => {
     mockWatchPage();
-    nock('https://www.youtube.com')
-      .post('/youtubei/v1/player')
-      .query({ key: API_KEY })
-      .reply(500);
+    nock('https://www.youtube.com').post('/youtubei/v1/player').query({ key: API_KEY }).reply(500);
 
     const transcriptFetcher = new YoutubeTranscript();
     await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(

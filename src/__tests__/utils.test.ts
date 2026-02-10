@@ -170,8 +170,8 @@ describe('decodeXmlEntities', () => {
   });
 
   it('should decode &#39; and &apos; to single quote', () => {
-    expect(decodeXmlEntities("it&#39;s")).toBe("it's");
-    expect(decodeXmlEntities("it&apos;s")).toBe("it's");
+    expect(decodeXmlEntities('it&#39;s')).toBe("it's");
+    expect(decodeXmlEntities('it&apos;s')).toBe("it's");
   });
 
   it('should decode &quot; to double quote', () => {
