@@ -1,4 +1,4 @@
-import { YoutubeTranscript } from 'youtube-transcript-plus.js';
+import { YoutubeTranscript } from 'youtube-transcript-plus';
 
 // Example showing how to use custom fetch functions for all three API calls
 // This is useful for proxy support, custom headers, or logging

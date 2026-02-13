@@ -10,7 +10,6 @@
     "noUnusedParameters": true,
     "importHelpers": true,
     "moduleResolution": "node",
-    "experimentalDecorators": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
@@ -18,6 +17,6 @@
     "lib": ["esnext", "dom"],
     "typeRoots": ["node_modules/@types"]
   },
-  "include": ["src/*.ts"],
+  "include": ["src/**/*.ts"],
   "exclude": ["node_modules", "dist", "**/*.spec.ts"]
 }

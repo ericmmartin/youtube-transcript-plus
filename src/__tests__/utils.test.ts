@@ -1,4 +1,4 @@
-import { defaultFetch, retrieveVideoId } from '../utils';
+import { defaultFetch, retrieveVideoId, decodeXmlEntities } from '../utils';
 import { YoutubeTranscriptInvalidVideoIdError } from '../errors';
 
 // Mock global fetch
@@ -149,5 +149,44 @@ describe('retrieveVideoId', () => {
     expect(() => retrieveVideoId('https://example.com')).toThrow(
       YoutubeTranscriptInvalidVideoIdError,
     );
+  });
+
+  it('should reject 11-character strings with special characters', () => {
+    expect(() => retrieveVideoId('../.././../.')).toThrow(YoutubeTranscriptInvalidVideoIdError);
+    expect(() => retrieveVideoId('hello world')).toThrow(YoutubeTranscriptInvalidVideoIdError);
+    expect(() => retrieveVideoId('abc!@#$%^&*')).toThrow(YoutubeTranscriptInvalidVideoIdError);
+  });
+
+  it('should accept valid 11-character video IDs with hyphens and underscores', () => {
+    expect(retrieveVideoId('abc_def-123')).toBe('abc_def-123');
+    expect(retrieveVideoId('___________')).toBe('___________');
+    expect(retrieveVideoId('-----------')).toBe('-----------');
+  });
+});
+
+describe('decodeXmlEntities', () => {
+  it('should decode &amp; to &', () => {
+    expect(decodeXmlEntities('rock &amp; roll')).toBe('rock & roll');
+  });
+
+  it('should decode &#39; and &apos; to single quote', () => {
+    expect(decodeXmlEntities('it&#39;s')).toBe("it's");
+    expect(decodeXmlEntities('it&apos;s')).toBe("it's");
+  });
+
+  it('should decode &quot; to double quote', () => {
+    expect(decodeXmlEntities('a &quot;test&quot;')).toBe('a "test"');
+  });
+
+  it('should decode &lt; and &gt;', () => {
+    expect(decodeXmlEntities('&lt;tag&gt;')).toBe('<tag>');
+  });
+
+  it('should handle multiple entities in one string', () => {
+    expect(decodeXmlEntities('A &amp; B &lt; C &gt; D')).toBe('A & B < C > D');
+  });
+
+  it('should return plain text unchanged', () => {
+    expect(decodeXmlEntities('Hello world')).toBe('Hello world');
   });
 });

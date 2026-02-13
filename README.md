@@ -169,7 +169,7 @@ fetchTranscript('videoId_or_URL', {
 
 ### Error Handling
 
-The library throws specific errors for different failure scenarios. Make sure to handle them appropriately.
+The library throws specific errors for different failure scenarios. Each error includes a `videoId` property for programmatic handling.
 
 ```javascript
 import {
@@ -183,13 +183,13 @@ fetchTranscript('videoId_or_URL')
   .then(console.log)
   .catch((error) => {
     if (error instanceof YoutubeTranscriptVideoUnavailableError) {
-      console.error('Video is unavailable:', error.message);
+      console.error('Video is unavailable:', error.videoId);
     } else if (error instanceof YoutubeTranscriptDisabledError) {
-      console.error('Transcripts are disabled for this video:', error.message);
+      console.error('Transcripts are disabled:', error.videoId);
     } else if (error instanceof YoutubeTranscriptNotAvailableError) {
-      console.error('No transcript available:', error.message);
+      console.error('No transcript available:', error.videoId);
     } else if (error instanceof YoutubeTranscriptNotAvailableLanguageError) {
-      console.error('Transcript not available in the specified language:', error.message);
+      console.error('Language not available:', error.lang, error.availableLangs);
     } else {
       console.error('An unexpected error occurred:', error.message);
     }
@@ -208,6 +208,14 @@ The repository includes several example files in the `example/` directory to dem
 6. **`custom-fetch-usage.js`**: Shows how to use all three custom fetch functions (`videoFetch`, `playerFetch`, `transcriptFetch`) with logging and custom headers.
 
 These examples can be found in the `example/` directory of the repository.
+
+### TypeScript Types
+
+All types are exported for TypeScript consumers:
+
+```typescript
+import type { TranscriptConfig, TranscriptResponse, FetchParams, CacheStrategy } from 'youtube-transcript-plus';
+```
 
 ### API
 
@@ -237,10 +245,11 @@ Returns a `Promise<TranscriptResponse[]>` where each item in the array represent
 
 The library throws the following errors:
 
-- **`YoutubeTranscriptVideoUnavailableError`**: The video is unavailable or has been removed.
-- **`YoutubeTranscriptDisabledError`**: Transcripts are disabled for the video.
-- **`YoutubeTranscriptNotAvailableError`**: No transcript is available for the video.
-- **`YoutubeTranscriptNotAvailableLanguageError`**: The transcript is not available in the specified language.
+- **`YoutubeTranscriptVideoUnavailableError`**: The video is unavailable or has been removed. Properties: `videoId`.
+- **`YoutubeTranscriptDisabledError`**: Transcripts are disabled for the video. Properties: `videoId`.
+- **`YoutubeTranscriptNotAvailableError`**: No transcript is available for the video. Properties: `videoId`.
+- **`YoutubeTranscriptNotAvailableLanguageError`**: The transcript is not available in the specified language. Properties: `videoId`, `lang`, `availableLangs`.
+- **`YoutubeTranscriptTooManyRequestError`**: YouTube is rate-limiting requests from your IP.
 - **`YoutubeTranscriptInvalidVideoIdError`**: The provided video ID or URL is invalid.
 
 ## License
