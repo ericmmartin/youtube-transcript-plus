@@ -1,6 +1,6 @@
 {
   "name": "youtube-transcript-plus",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Fetch transcript from a YouTube video",
   "type": "module",
   "main": "dist/youtube-transcript-plus.js",
