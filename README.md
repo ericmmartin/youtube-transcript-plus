@@ -214,7 +214,12 @@ These examples can be found in the `example/` directory of the repository.
 All types are exported for TypeScript consumers:
 
 ```typescript
-import type { TranscriptConfig, TranscriptResponse, FetchParams, CacheStrategy } from 'youtube-transcript-plus';
+import type {
+  TranscriptConfig,
+  TranscriptResponse,
+  FetchParams,
+  CacheStrategy,
+} from 'youtube-transcript-plus';
 ```
 
 ### API
@@ -251,6 +256,17 @@ The library throws the following errors:
 - **`YoutubeTranscriptNotAvailableLanguageError`**: The transcript is not available in the specified language. Properties: `videoId`, `lang`, `availableLangs`.
 - **`YoutubeTranscriptTooManyRequestError`**: YouTube is rate-limiting requests from your IP.
 - **`YoutubeTranscriptInvalidVideoIdError`**: The provided video ID or URL is invalid.
+
+## v2.0 Roadmap
+
+We're planning the next major version! Vote on the features you'd like to see by adding a :+1: reaction to the GitHub issues:
+
+- [Transcript format output (SRT, VTT, plain text)](https://github.com/ericmmartin/youtube-transcript-plus/issues/19)
+- [List available caption languages](https://github.com/ericmmartin/youtube-transcript-plus/issues/20)
+- [DX & modernization (strict TS, dual CJS+ESM, Vitest)](https://github.com/ericmmartin/youtube-transcript-plus/issues/21)
+- [Retry with backoff & AbortController support](https://github.com/ericmmartin/youtube-transcript-plus/issues/22)
+
+Have a feature idea not listed here? [Open an issue](https://github.com/ericmmartin/youtube-transcript-plus/issues/new) and let us know!
 
 ## License
 
