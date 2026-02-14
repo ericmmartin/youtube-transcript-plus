@@ -237,6 +237,7 @@ export class YoutubeTranscript {
 
 export type { CacheStrategy, TranscriptConfig, TranscriptResponse, FetchParams } from './types';
 export { InMemoryCache, FsCache } from './cache';
+export { toSRT, toVTT, toPlainText } from './formatters';
 
 export * from './errors';
 
