@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { toSRT, toVTT, toPlainText } from '../formatters';
-import { TranscriptResponse } from '../types';
+import { TranscriptSegment } from '../types';
 
-const segments: TranscriptResponse[] = [
+const segments: TranscriptSegment[] = [
   { text: 'Hello world', duration: 1.5, offset: 0, lang: 'en' },
   { text: 'Second line', duration: 2.0, offset: 1.5, lang: 'en' },
   { text: 'Third line', duration: 3.5, offset: 3.5, lang: 'en' },

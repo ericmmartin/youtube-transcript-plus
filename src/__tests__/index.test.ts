@@ -14,7 +14,7 @@ import {
   YoutubeTranscriptVideoUnavailableError,
 } from '../errors';
 import { retrieveVideoId } from '../utils';
-import { CacheStrategy } from '../types';
+import { CacheStrategy, TranscriptResult } from '../types';
 
 const fixturesDir = path.join(process.cwd(), 'src', '__tests__', 'fixtures');
 
@@ -842,5 +842,170 @@ describe('AbortController support', () => {
     setTimeout(() => controller.abort(), 50);
 
     await expect(promise).rejects.toThrow();
+  });
+});
+
+describe('Video details (videoDetails: true)', () => {
+  it('should return TranscriptResult with videoDetails when configured', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ videoDetails: true });
+    const result = (await yt.fetchTranscript(VIDEO_ID)) as TranscriptResult;
+
+    expect(result.videoDetails).toBeDefined();
+    expect(result.segments).toBeDefined();
+    expect(result.videoDetails.videoId).toBe(VIDEO_ID);
+    expect(result.videoDetails.title).toBe('Test Video Title');
+    expect(result.videoDetails.author).toBe('Test Author');
+    expect(result.videoDetails.channelId).toBe('UCtest1234567890');
+    expect(result.videoDetails.lengthSeconds).toBe(120);
+    expect(result.videoDetails.viewCount).toBe(1000000);
+    expect(result.videoDetails.description).toBe('This is a test video description');
+    expect(result.videoDetails.keywords).toEqual(['test', 'video']);
+    expect(result.videoDetails.thumbnails).toHaveLength(2);
+    expect(result.videoDetails.isLiveContent).toBe(false);
+    expect(result.segments).toEqual([
+      { text: 'Hello world', duration: 1.5, offset: 0, lang: 'en' },
+      { text: 'Second line', duration: 2.0, offset: 1.5, lang: 'en' },
+    ]);
+  });
+
+  it('should return TranscriptSegment[] without videoDetails by default', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const yt = new YoutubeTranscript();
+    const result = await yt.fetchTranscript(VIDEO_ID);
+
+    expect(Array.isArray(result)).toBe(true);
+    expect(result).toHaveLength(2);
+    expect((result as TranscriptResult).videoDetails).toBeUndefined();
+  });
+
+  it('should work via static method with videoDetails', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const result = await YoutubeTranscript.fetchTranscript(VIDEO_ID, { videoDetails: true });
+
+    expect(result.videoDetails).toBeDefined();
+    expect(result.segments).toBeDefined();
+    expect(result.videoDetails.title).toBe('Test Video Title');
+  });
+
+  it('should work via convenience export with videoDetails', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const result = await fetchTranscript(VIDEO_ID, { videoDetails: true });
+
+    expect(result.videoDetails).toBeDefined();
+    expect(result.segments).toBeDefined();
+  });
+
+  it('should use separate cache key when videoDetails is requested', async () => {
+    const mockCache: CacheStrategy = {
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ cache: mockCache, videoDetails: true });
+    await yt.fetchTranscript(VIDEO_ID);
+
+    // Should use the +details cache key
+    expect(mockCache.get).toHaveBeenCalledWith(`yt:transcript+details:${VIDEO_ID}:`);
+    expect(mockCache.set).toHaveBeenCalledWith(
+      `yt:transcript+details:${VIDEO_ID}:`,
+      expect.any(String),
+      undefined,
+    );
+
+    // Verify the cached value includes videoDetails
+    const storedValue = JSON.parse(
+      (mockCache.set as ReturnType<typeof vi.fn>).mock.calls[0][1] as string,
+    );
+    expect(storedValue.videoDetails).toBeDefined();
+    expect(storedValue.segments).toBeDefined();
+  });
+
+  it('should return cached TranscriptResult when videoDetails cache hit', async () => {
+    const cachedResult: TranscriptResult = {
+      videoDetails: {
+        videoId: VIDEO_ID,
+        title: 'Cached Title',
+        author: 'Cached Author',
+        channelId: 'UCcached',
+        lengthSeconds: 60,
+        viewCount: 500,
+        description: 'cached',
+        keywords: [],
+        thumbnails: [],
+        isLiveContent: false,
+      },
+      segments: [{ text: 'cached text', duration: 1.0, offset: 0, lang: 'en' }],
+    };
+
+    const mockCache: CacheStrategy = {
+      get: vi.fn().mockResolvedValue(JSON.stringify(cachedResult)),
+      set: vi.fn().mockResolvedValue(undefined),
+    };
+
+    const yt = new YoutubeTranscript({ cache: mockCache, videoDetails: true });
+    const result = (await yt.fetchTranscript(VIDEO_ID)) as TranscriptResult;
+
+    expect(result.videoDetails.title).toBe('Cached Title');
+    expect(result.segments[0].text).toBe('cached text');
+  });
+
+  it('should handle missing videoDetails in player response gracefully', async () => {
+    mockWatchPage();
+    // Use a player response without videoDetails
+    mockPlayer({
+      playabilityStatus: { status: 'OK' },
+      captions: {
+        playerCaptionsTracklistRenderer: {
+          captionTracks: [
+            {
+              baseUrl: `https://www.youtube.com/api/timedtext?lang=en&v=${VIDEO_ID}`,
+              languageCode: 'en',
+            },
+          ],
+        },
+      },
+    });
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ videoDetails: true });
+    const result = (await yt.fetchTranscript(VIDEO_ID)) as TranscriptResult;
+
+    // Should fallback to defaults
+    expect(result.videoDetails.videoId).toBe(VIDEO_ID);
+    expect(result.videoDetails.title).toBe('');
+    expect(result.videoDetails.author).toBe('');
+    expect(result.videoDetails.lengthSeconds).toBe(0);
+    expect(result.videoDetails.viewCount).toBe(0);
+    expect(result.videoDetails.keywords).toEqual([]);
+    expect(result.videoDetails.thumbnails).toEqual([]);
+  });
+
+  it('should parse lengthSeconds and viewCount as numbers', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ videoDetails: true });
+    const result = (await yt.fetchTranscript(VIDEO_ID)) as TranscriptResult;
+
+    expect(typeof result.videoDetails.lengthSeconds).toBe('number');
+    expect(typeof result.videoDetails.viewCount).toBe('number');
   });
 });

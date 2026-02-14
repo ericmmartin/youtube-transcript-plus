@@ -48,10 +48,12 @@ export interface TranscriptConfig {
   retryDelay?: number;
   /** AbortSignal to cancel in-flight requests. */
   signal?: AbortSignal;
+  /** When `true`, return a {@link TranscriptResult} containing both video details and segments. */
+  videoDetails?: boolean;
 }
 
 /** A single transcript segment returned by {@link fetchTranscript}. */
-export interface TranscriptResponse {
+export interface TranscriptSegment {
   /** The text content of the transcript segment. */
   text: string;
   /** Duration of the segment in seconds. */
@@ -60,6 +62,53 @@ export interface TranscriptResponse {
   offset: number;
   /** The language code of the transcript. */
   lang: string;
+}
+
+/**
+ * @deprecated Use {@link TranscriptSegment} instead.
+ */
+export type TranscriptResponse = TranscriptSegment;
+
+/** A video thumbnail image. */
+export interface Thumbnail {
+  /** URL of the thumbnail image. */
+  url: string;
+  /** Width of the thumbnail in pixels. */
+  width: number;
+  /** Height of the thumbnail in pixels. */
+  height: number;
+}
+
+/** Metadata about a YouTube video, extracted from the Innertube player response. */
+export interface VideoDetails {
+  /** The video's unique ID. */
+  videoId: string;
+  /** Video title. */
+  title: string;
+  /** Channel/uploader name. */
+  author: string;
+  /** Uploader's channel ID. */
+  channelId: string;
+  /** Duration in seconds. */
+  lengthSeconds: number;
+  /** Number of views. */
+  viewCount: number;
+  /** Video description. */
+  description: string;
+  /** Array of keyword tags. */
+  keywords: string[];
+  /** Array of thumbnail images at various resolutions. */
+  thumbnails: Thumbnail[];
+  /** Whether the video is live content. */
+  isLiveContent: boolean;
+}
+
+/** Result returned by {@link fetchTranscript} when `videoDetails: true` is set. */
+export interface TranscriptResult {
+  /** Metadata about the video. */
+  videoDetails: VideoDetails;
+  /** Array of transcript segments. */
+  segments: TranscriptSegment[];
 }
 
 /** Shape of a single caption track from the Innertube player response. */
@@ -84,6 +133,20 @@ export interface CaptionTrackInfo {
 /** Shape of the Innertube player JSON response (relevant subset). */
 export interface InnertubePlayerResponse {
   playabilityStatus?: { status?: string };
+  videoDetails?: {
+    videoId?: string;
+    title?: string;
+    author?: string;
+    channelId?: string;
+    lengthSeconds?: string;
+    viewCount?: string;
+    shortDescription?: string;
+    keywords?: string[];
+    thumbnail?: {
+      thumbnails?: Thumbnail[];
+    };
+    isLiveContent?: boolean;
+  };
   captions?: {
     playerCaptionsTracklistRenderer?: {
       captionTracks?: CaptionTrack[];

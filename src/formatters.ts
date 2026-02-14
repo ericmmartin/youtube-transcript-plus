@@ -1,4 +1,4 @@
-import { TranscriptResponse } from './types';
+import { TranscriptSegment } from './types';
 
 /**
  * Format seconds as an SRT timestamp: `HH:MM:SS,mmm`
@@ -53,7 +53,7 @@ function formatVttTimestamp(seconds: number): string {
  * const srt = toSRT(transcript);
  * ```
  */
-export function toSRT(segments: TranscriptResponse[]): string {
+export function toSRT(segments: TranscriptSegment[]): string {
   return segments
     .map((segment, index) => {
       const start = formatSrtTimestamp(segment.offset);
@@ -76,7 +76,7 @@ export function toSRT(segments: TranscriptResponse[]): string {
  * const vtt = toVTT(transcript);
  * ```
  */
-export function toVTT(segments: TranscriptResponse[]): string {
+export function toVTT(segments: TranscriptSegment[]): string {
   const cues = segments
     .map((segment) => {
       const start = formatVttTimestamp(segment.offset);
@@ -102,6 +102,6 @@ export function toVTT(segments: TranscriptResponse[]): string {
  * const paragraph = toPlainText(transcript, ' ');
  * ```
  */
-export function toPlainText(segments: TranscriptResponse[], separator = '\n'): string {
+export function toPlainText(segments: TranscriptSegment[], separator = '\n'): string {
   return segments.map((segment) => segment.text).join(separator);
 }

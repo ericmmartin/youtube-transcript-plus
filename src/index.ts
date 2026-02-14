@@ -15,7 +15,9 @@ import {
 } from './errors';
 import {
   TranscriptConfig,
-  TranscriptResponse,
+  TranscriptSegment,
+  TranscriptResult,
+  VideoDetails,
   FetchParams,
   InnertubePlayerResponse,
   CaptionTrack,
@@ -37,6 +39,11 @@ import {
  * // Static method
  * const transcript = await YoutubeTranscript.fetchTranscript('dQw4w9WgXcQ', { lang: 'en' });
  *
+ * // Opt-in to video details
+ * const { videoDetails, segments } = await YoutubeTranscript.fetchTranscript('dQw4w9WgXcQ', {
+ *   videoDetails: true,
+ * });
+ *
  * // Convenience export
  * const transcript = await fetchTranscript('dQw4w9WgXcQ');
  * const languages = await listLanguages('dQw4w9WgXcQ');
@@ -46,13 +53,13 @@ export class YoutubeTranscript {
   constructor(private config?: TranscriptConfig) {}
 
   /**
-   * Fetch caption tracks from the Innertube player API.
+   * Fetch caption tracks and the player response from the Innertube player API.
    * Shared logic used by both fetchTranscript and listLanguages.
    */
   private async _fetchCaptionTracks(
     identifier: string,
     lang?: string,
-  ): Promise<CaptionTrack[]> {
+  ): Promise<{ tracks: CaptionTrack[]; playerJson: InnertubePlayerResponse }> {
     const userAgent = this.config?.userAgent ?? DEFAULT_USER_AGENT;
     const protocol = this.config?.disableHttps ? 'http' : 'https';
     const retries = this.config?.retries ?? 0;
@@ -153,14 +160,40 @@ export class YoutubeTranscript {
       throw new YoutubeTranscriptDisabledError(identifier);
     }
 
-    return tracks;
+    return { tracks, playerJson };
+  }
+
+  /**
+   * Extract VideoDetails from the Innertube player response.
+   */
+  private _extractVideoDetails(
+    playerJson: InnertubePlayerResponse,
+    identifier: string,
+  ): VideoDetails {
+    const raw = playerJson.videoDetails;
+    return {
+      videoId: raw?.videoId ?? identifier,
+      title: raw?.title ?? '',
+      author: raw?.author ?? '',
+      channelId: raw?.channelId ?? '',
+      lengthSeconds: parseInt(raw?.lengthSeconds ?? '0', 10),
+      viewCount: parseInt(raw?.viewCount ?? '0', 10),
+      description: raw?.shortDescription ?? '',
+      keywords: raw?.keywords ?? [],
+      thumbnails: raw?.thumbnail?.thumbnails ?? [],
+      isLiveContent: raw?.isLiveContent ?? false,
+    };
   }
 
   /**
    * Fetch the transcript for a YouTube video.
    *
+   * When `videoDetails` is set to `true` in the config, returns a {@link TranscriptResult}
+   * containing both video metadata and transcript segments. Otherwise returns an array of
+   * {@link TranscriptSegment} objects.
+   *
    * @param videoId - A YouTube video ID (11 characters) or full YouTube URL.
-   * @returns An array of transcript segments.
+   * @returns An array of transcript segments, or a TranscriptResult if `videoDetails` is enabled.
    * @throws {@link YoutubeTranscriptInvalidVideoIdError} if the video ID/URL is invalid.
    * @throws {@link YoutubeTranscriptVideoUnavailableError} if the video is unavailable.
    * @throws {@link YoutubeTranscriptDisabledError} if transcripts are disabled.
@@ -168,7 +201,7 @@ export class YoutubeTranscript {
    * @throws {@link YoutubeTranscriptNotAvailableLanguageError} if the requested language is unavailable.
    * @throws {@link YoutubeTranscriptTooManyRequestError} if rate-limited by YouTube.
    */
-  async fetchTranscript(videoId: string): Promise<TranscriptResponse[]> {
+  async fetchTranscript(videoId: string): Promise<TranscriptSegment[] | TranscriptResult> {
     const identifier = retrieveVideoId(videoId);
 
     const lang = this.config?.lang;
@@ -176,23 +209,26 @@ export class YoutubeTranscript {
       validateLang(lang);
     }
     const userAgent = this.config?.userAgent ?? DEFAULT_USER_AGENT;
+    const includeDetails = this.config?.videoDetails === true;
 
     // Cache lookup (if provided)
     const cache = this.config?.cache;
     const cacheTTL = this.config?.cacheTTL;
-    const cacheKey = `yt:transcript:${identifier}:${lang ?? ''}`;
+    const cacheKey = includeDetails
+      ? `yt:transcript+details:${identifier}:${lang ?? ''}`
+      : `yt:transcript:${identifier}:${lang ?? ''}`;
     if (cache) {
       const cached = await cache.get(cacheKey);
       if (cached) {
         try {
-          return JSON.parse(cached) as TranscriptResponse[];
+          return JSON.parse(cached) as TranscriptSegment[] | TranscriptResult;
         } catch {
           // ignore parse errors and continue
         }
       }
     }
 
-    const tracks = await this._fetchCaptionTracks(identifier, lang);
+    const { tracks, playerJson } = await this._fetchCaptionTracks(identifier, lang);
 
     // Respect requested language or fallback to first track
     const selectedTrack: CaptionTrack | undefined = lang
@@ -241,29 +277,34 @@ export class YoutubeTranscript {
 
     const transcriptBody = await transcriptResponse.text();
 
-    // Parse XML into the existing TranscriptResponse shape
+    // Parse XML into TranscriptSegment objects
     const results = [...transcriptBody.matchAll(RE_XML_TRANSCRIPT)];
-    const transcript: TranscriptResponse[] = results.map((m) => ({
+    const segments: TranscriptSegment[] = results.map((m) => ({
       text: decodeXmlEntities(m[3]),
       duration: parseFloat(m[2]),
       offset: parseFloat(m[1]),
       lang: lang ?? selectedTrack.languageCode,
     }));
 
-    if (transcript.length === 0) {
+    if (segments.length === 0) {
       throw new YoutubeTranscriptNotAvailableError(identifier);
     }
+
+    // Build the result based on whether videoDetails was requested
+    const result: TranscriptSegment[] | TranscriptResult = includeDetails
+      ? { videoDetails: this._extractVideoDetails(playerJson, identifier), segments }
+      : segments;
 
     // Cache store
     if (cache) {
       try {
-        await cache.set(cacheKey, JSON.stringify(transcript), cacheTTL);
+        await cache.set(cacheKey, JSON.stringify(result), cacheTTL);
       } catch {
         // non-fatal
       }
     }
 
-    return transcript;
+    return result;
   }
 
   /**
@@ -292,7 +333,7 @@ export class YoutubeTranscript {
    */
   async listLanguages(videoId: string): Promise<CaptionTrackInfo[]> {
     const identifier = retrieveVideoId(videoId);
-    const tracks = await this._fetchCaptionTracks(identifier);
+    const { tracks } = await this._fetchCaptionTracks(identifier);
 
     return tracks.map((track) => ({
       languageCode: track.languageCode,
@@ -306,12 +347,21 @@ export class YoutubeTranscript {
    *
    * @param videoId - A YouTube video ID (11 characters) or full YouTube URL.
    * @param config - Optional configuration options.
-   * @returns An array of transcript segments.
+   * @returns An array of transcript segments, or a {@link TranscriptResult} when `videoDetails: true`.
    */
+  static fetchTranscript(videoId: string): Promise<TranscriptSegment[]>;
+  static fetchTranscript(
+    videoId: string,
+    config: TranscriptConfig & { videoDetails: true },
+  ): Promise<TranscriptResult>;
+  static fetchTranscript(
+    videoId: string,
+    config: TranscriptConfig,
+  ): Promise<TranscriptSegment[]>;
   static async fetchTranscript(
     videoId: string,
     config?: TranscriptConfig,
-  ): Promise<TranscriptResponse[]> {
+  ): Promise<TranscriptSegment[] | TranscriptResult> {
     const instance = new YoutubeTranscript(config);
     return instance.fetchTranscript(videoId);
   }
@@ -335,8 +385,12 @@ export class YoutubeTranscript {
 export type {
   CacheStrategy,
   CaptionTrackInfo,
+  Thumbnail,
   TranscriptConfig,
   TranscriptResponse,
+  TranscriptResult,
+  TranscriptSegment,
+  VideoDetails,
   FetchParams,
 } from './types';
 export { InMemoryCache, FsCache } from './cache';
@@ -349,15 +403,36 @@ export * from './errors';
  *
  * @param videoId - A YouTube video ID (11 characters) or full YouTube URL.
  * @param config - Optional configuration options.
- * @returns An array of transcript segments.
+ * @returns An array of transcript segments, or a {@link TranscriptResult} when `videoDetails: true`.
  *
  * @example
  * ```typescript
  * import { fetchTranscript } from 'youtube-transcript-plus';
+ *
+ * // Returns TranscriptSegment[]
  * const transcript = await fetchTranscript('dQw4w9WgXcQ');
+ *
+ * // Returns TranscriptResult with video details
+ * const { videoDetails, segments } = await fetchTranscript('dQw4w9WgXcQ', {
+ *   videoDetails: true,
+ * });
  * ```
  */
-export const fetchTranscript = YoutubeTranscript.fetchTranscript;
+export function fetchTranscript(videoId: string): Promise<TranscriptSegment[]>;
+export function fetchTranscript(
+  videoId: string,
+  config: TranscriptConfig & { videoDetails: true },
+): Promise<TranscriptResult>;
+export function fetchTranscript(
+  videoId: string,
+  config: TranscriptConfig,
+): Promise<TranscriptSegment[]>;
+export function fetchTranscript(
+  videoId: string,
+  config?: TranscriptConfig,
+): Promise<TranscriptSegment[] | TranscriptResult> {
+  return YoutubeTranscript.fetchTranscript(videoId, config as TranscriptConfig);
+}
 
 /**
  * Convenience function to list available caption languages for a YouTube video.

@@ -1,5 +1,22 @@
 {
   "playabilityStatus": { "status": "OK" },
+  "videoDetails": {
+    "videoId": "TESTVIDEOID",
+    "title": "Test Video Title",
+    "author": "Test Author",
+    "channelId": "UCtest1234567890",
+    "lengthSeconds": "120",
+    "viewCount": "1000000",
+    "shortDescription": "This is a test video description",
+    "keywords": ["test", "video"],
+    "thumbnail": {
+      "thumbnails": [
+        { "url": "https://i.ytimg.com/vi/TESTVIDEOID/default.jpg", "width": 120, "height": 90 },
+        { "url": "https://i.ytimg.com/vi/TESTVIDEOID/hqdefault.jpg", "width": 480, "height": 360 }
+      ]
+    },
+    "isLiveContent": false
+  },
   "captions": {
     "playerCaptionsTracklistRenderer": {
       "captionTracks": [
