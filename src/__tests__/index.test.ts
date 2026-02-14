@@ -633,3 +633,214 @@ describe('YoutubeTranscript.listLanguages', () => {
     );
   });
 });
+
+describe('Retry with exponential backoff', () => {
+  it('should retry on 429 and succeed on next attempt', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+
+    // First transcript request returns 429, second succeeds
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(429);
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ retries: 1, retryDelay: 10 });
+    const transcript = await yt.fetchTranscript(VIDEO_ID);
+
+    expect(transcript).toHaveLength(2);
+    expect(nock.isDone()).toBe(true);
+  });
+
+  it('should retry on 500 and succeed on next attempt', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+
+    // First transcript request returns 500, second succeeds
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(500);
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ retries: 1, retryDelay: 10 });
+    const transcript = await yt.fetchTranscript(VIDEO_ID);
+
+    expect(transcript).toHaveLength(2);
+    expect(nock.isDone()).toBe(true);
+  });
+
+  it('should not retry on 400 (non-retryable client error)', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(400);
+
+    const yt = new YoutubeTranscript({ retries: 2, retryDelay: 10 });
+    await expect(yt.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptNotAvailableError,
+    );
+  });
+
+  it('should exhaust retries and throw after max attempts', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+
+    // All attempts return 429
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .times(3)
+      .reply(429);
+
+    const yt = new YoutubeTranscript({ retries: 2, retryDelay: 10 });
+    await expect(yt.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptTooManyRequestError,
+    );
+    expect(nock.isDone()).toBe(true);
+  });
+
+  it('should retry watch page fetch on 5xx', async () => {
+    // First watch page returns 500, second succeeds
+    nock('https://www.youtube.com')
+      .get('/watch')
+      .query({ v: VIDEO_ID })
+      .reply(500);
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ retries: 1, retryDelay: 10 });
+    const transcript = await yt.fetchTranscript(VIDEO_ID);
+
+    expect(transcript).toHaveLength(2);
+    expect(nock.isDone()).toBe(true);
+  });
+
+  it('should retry player fetch on 5xx', async () => {
+    mockWatchPage();
+
+    // First player request returns 503, second succeeds
+    nock('https://www.youtube.com')
+      .post('/youtubei/v1/player')
+      .query({ key: API_KEY })
+      .reply(503);
+    mockPlayer(loadJsonFixture('player-success.json'));
+    mockTranscript();
+
+    const yt = new YoutubeTranscript({ retries: 1, retryDelay: 10 });
+    const transcript = await yt.fetchTranscript(VIDEO_ID);
+
+    expect(transcript).toHaveLength(2);
+    expect(nock.isDone()).toBe(true);
+  });
+
+  it('should default to 0 retries (no retry behavior)', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(429);
+
+    const yt = new YoutubeTranscript();
+    await expect(yt.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptTooManyRequestError,
+    );
+  });
+});
+
+describe('AbortController support', () => {
+  it('should abort fetch when signal is aborted before call', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const yt = new YoutubeTranscript({ signal: controller.signal });
+    await expect(yt.fetchTranscript(VIDEO_ID)).rejects.toThrow();
+  });
+
+  it('should abort listLanguages when signal is aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const yt = new YoutubeTranscript({ signal: controller.signal });
+    await expect(yt.listLanguages(VIDEO_ID)).rejects.toThrow();
+  });
+
+  it('should pass signal to custom fetch functions', async () => {
+    const controller = new AbortController();
+
+    const mockVideoFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('{"INNERTUBE_API_KEY":"test-key"}'),
+    });
+
+    const mockPlayerFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          captions: {
+            playerCaptionsTracklistRenderer: {
+              captionTracks: [{ baseUrl: 'https://example.com/transcript', languageCode: 'en' }],
+            },
+          },
+          playabilityStatus: { status: 'OK' },
+        }),
+    });
+
+    const mockTranscriptFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: () => Promise.resolve('<text start="0" dur="1.5">Hello</text>'),
+    });
+
+    const yt = new YoutubeTranscript({
+      signal: controller.signal,
+      videoFetch: mockVideoFetch,
+      playerFetch: mockPlayerFetch,
+      transcriptFetch: mockTranscriptFetch,
+    });
+
+    await yt.fetchTranscript('dQw4w9WgXcQ');
+
+    // Verify signal was passed through to all custom fetch functions
+    expect(mockVideoFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: controller.signal }),
+    );
+    expect(mockPlayerFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: controller.signal }),
+    );
+    expect(mockTranscriptFetch).toHaveBeenCalledWith(
+      expect.objectContaining({ signal: controller.signal }),
+    );
+  });
+
+  it('should abort during retry delay', async () => {
+    mockWatchPage();
+    mockPlayer(loadJsonFixture('player-success.json'));
+
+    nock('https://www.youtube.com')
+      .get('/api/timedtext')
+      .query({ lang: 'en', v: VIDEO_ID })
+      .reply(429);
+
+    const controller = new AbortController();
+
+    const yt = new YoutubeTranscript({
+      retries: 3,
+      retryDelay: 60000, // Long delay — abort should fire first
+      signal: controller.signal,
+    });
+
+    const promise = yt.fetchTranscript(VIDEO_ID);
+
+    // Abort after a brief tick to let the first attempt + retry delay start
+    setTimeout(() => controller.abort(), 50);
+
+    await expect(promise).rejects.toThrow();
+  });
+});

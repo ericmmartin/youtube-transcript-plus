@@ -1,5 +1,11 @@
 import { DEFAULT_USER_AGENT, RE_XML_TRANSCRIPT } from './constants';
-import { retrieveVideoId, defaultFetch, decodeXmlEntities, validateLang } from './utils';
+import {
+  retrieveVideoId,
+  defaultFetch,
+  decodeXmlEntities,
+  validateLang,
+  fetchWithRetry,
+} from './utils';
 import {
   YoutubeTranscriptVideoUnavailableError,
   YoutubeTranscriptTooManyRequestError,
@@ -49,12 +55,22 @@ export class YoutubeTranscript {
   ): Promise<CaptionTrack[]> {
     const userAgent = this.config?.userAgent ?? DEFAULT_USER_AGENT;
     const protocol = this.config?.disableHttps ? 'http' : 'https';
+    const retries = this.config?.retries ?? 0;
+    const retryDelay = this.config?.retryDelay ?? 1000;
+    const signal = this.config?.signal;
 
     // 1) Fetch the watch page to extract an Innertube API key
     const watchUrl = `${protocol}://www.youtube.com/watch?v=${identifier}`;
-    const videoPageResponse = this.config?.videoFetch
-      ? await this.config.videoFetch({ url: watchUrl, lang, userAgent })
-      : await defaultFetch({ url: watchUrl, lang, userAgent });
+    const watchFetchParams: FetchParams = { url: watchUrl, lang, userAgent, signal };
+    const videoPageResponse = await fetchWithRetry(
+      () =>
+        this.config?.videoFetch
+          ? this.config.videoFetch(watchFetchParams)
+          : defaultFetch(watchFetchParams),
+      retries,
+      retryDelay,
+      signal,
+    );
 
     if (!videoPageResponse.ok) {
       throw new YoutubeTranscriptVideoUnavailableError(identifier);
@@ -96,10 +112,17 @@ export class YoutubeTranscript {
       userAgent,
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(playerBody),
+      signal,
     };
-    const playerRes = this.config?.playerFetch
-      ? await this.config.playerFetch(playerFetchParams)
-      : await defaultFetch(playerFetchParams);
+    const playerRes = await fetchWithRetry(
+      () =>
+        this.config?.playerFetch
+          ? this.config.playerFetch(playerFetchParams)
+          : defaultFetch(playerFetchParams),
+      retries,
+      retryDelay,
+      signal,
+    );
 
     if (!playerRes.ok) {
       throw new YoutubeTranscriptVideoUnavailableError(identifier);
@@ -194,9 +217,19 @@ export class YoutubeTranscript {
     }
 
     // Fetch transcript XML using the same hook surface as before
-    const transcriptResponse = this.config?.transcriptFetch
-      ? await this.config.transcriptFetch({ url: transcriptURL, lang, userAgent })
-      : await defaultFetch({ url: transcriptURL, lang, userAgent });
+    const retries = this.config?.retries ?? 0;
+    const retryDelay = this.config?.retryDelay ?? 1000;
+    const signal = this.config?.signal;
+    const transcriptFetchParams: FetchParams = { url: transcriptURL, lang, userAgent, signal };
+    const transcriptResponse = await fetchWithRetry(
+      () =>
+        this.config?.transcriptFetch
+          ? this.config.transcriptFetch(transcriptFetchParams)
+          : defaultFetch(transcriptFetchParams),
+      retries,
+      retryDelay,
+      signal,
+    );
 
     if (!transcriptResponse.ok) {
       // Preserve legacy behavior

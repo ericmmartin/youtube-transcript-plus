@@ -20,6 +20,8 @@ export interface FetchParams {
   body?: string;
   /** Additional HTTP headers (e.g., `Content-Type` for the player endpoint). */
   headers?: Record<string, string>;
+  /** AbortSignal to cancel the request. */
+  signal?: AbortSignal;
 }
 
 /** Configuration options for fetching transcripts. */
@@ -40,6 +42,12 @@ export interface TranscriptConfig {
   transcriptFetch?: (params: FetchParams) => Promise<Response>;
   /** Custom fetch function for the YouTube Innertube player API (POST request). */
   playerFetch?: (params: FetchParams) => Promise<Response>;
+  /** Maximum number of retry attempts for transient failures (429, 5xx). Defaults to `0` (no retries). */
+  retries?: number;
+  /** Base delay in milliseconds for exponential backoff between retries. Defaults to `1000`. */
+  retryDelay?: number;
+  /** AbortSignal to cancel in-flight requests. */
+  signal?: AbortSignal;
 }
 
 /** A single transcript segment returned by {@link fetchTranscript}. */
