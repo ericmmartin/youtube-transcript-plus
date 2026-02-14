@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import nock from 'nock';
@@ -5,6 +6,7 @@ import nock from 'nock';
 import { YoutubeTranscript, fetchTranscript } from '../index';
 import {
   YoutubeTranscriptInvalidVideoIdError,
+  YoutubeTranscriptInvalidLangError,
   YoutubeTranscriptDisabledError,
   YoutubeTranscriptNotAvailableLanguageError,
   YoutubeTranscriptTooManyRequestError,
@@ -51,7 +53,7 @@ beforeAll(() => {
 
 afterEach(() => {
   nock.cleanAll();
-  jest.restoreAllMocks();
+  vi.restoreAllMocks();
 });
 
 afterAll(() => {
@@ -129,7 +131,7 @@ describe('YoutubeTranscript', () => {
   });
 
   it('should use custom playerFetch when provided', async () => {
-    const mockPlayerFetch = jest.fn().mockResolvedValue({
+    const mockPlayerFetch = vi.fn().mockResolvedValue({
       ok: true,
       json: () =>
         Promise.resolve({
@@ -142,12 +144,12 @@ describe('YoutubeTranscript', () => {
         }),
     });
 
-    const mockVideoFetch = jest.fn().mockResolvedValue({
+    const mockVideoFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve('{"INNERTUBE_API_KEY":"test-key"}'),
     });
 
-    const mockTranscriptFetch = jest.fn().mockResolvedValue({
+    const mockTranscriptFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve('<text start="0" dur="1.5">Hello world</text>'),
     });
@@ -172,12 +174,12 @@ describe('YoutubeTranscript', () => {
   });
 
   it('should use custom videoFetch and transcriptFetch when provided', async () => {
-    const mockVideoFetch = jest.fn().mockResolvedValue({
+    const mockVideoFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve('{"INNERTUBE_API_KEY":"custom-key"}'),
     });
 
-    const mockTranscriptFetch = jest.fn().mockResolvedValue({
+    const mockTranscriptFetch = vi.fn().mockResolvedValue({
       ok: true,
       text: () => Promise.resolve('<text start="0" dur="2.0">Custom transcript</text>'),
     });
@@ -284,6 +286,13 @@ describe('retrieveVideoId', () => {
 });
 
 describe('YoutubeTranscript Error Handling', () => {
+  it('should throw YoutubeTranscriptInvalidLangError when lang contains invalid characters', async () => {
+    const transcriptFetcher = new YoutubeTranscript({ lang: 'en;drop' });
+    await expect(transcriptFetcher.fetchTranscript(VIDEO_ID)).rejects.toThrow(
+      YoutubeTranscriptInvalidLangError,
+    );
+  });
+
   it('should throw YoutubeTranscriptTooManyRequestError when too many requests are made', async () => {
     mockWatchPage('https', loadFixture('watch-recaptcha.html'));
 
@@ -401,8 +410,8 @@ describe('YoutubeTranscript Caching', () => {
     ]);
 
     const mockCache: CacheStrategy = {
-      get: jest.fn().mockResolvedValue(cachedData),
-      set: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(cachedData),
+      set: vi.fn().mockResolvedValue(undefined),
     };
 
     const transcriptFetcher = new YoutubeTranscript({ cache: mockCache });
@@ -416,8 +425,8 @@ describe('YoutubeTranscript Caching', () => {
 
   it('should store result in cache after successful fetch', async () => {
     const mockCache: CacheStrategy = {
-      get: jest.fn().mockResolvedValue(null),
-      set: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockResolvedValue(undefined),
     };
 
     mockWatchPage();
@@ -433,7 +442,9 @@ describe('YoutubeTranscript Caching', () => {
       5000,
     );
 
-    const storedValue = JSON.parse((mockCache.set as jest.Mock).mock.calls[0][1]);
+    const storedValue = JSON.parse(
+      (mockCache.set as ReturnType<typeof vi.fn>).mock.calls[0][1] as string,
+    );
     expect(storedValue).toEqual([
       { text: 'Hello world', duration: 1.5, offset: 0, lang: 'en' },
       { text: 'Second line', duration: 2.0, offset: 1.5, lang: 'en' },
@@ -442,8 +453,8 @@ describe('YoutubeTranscript Caching', () => {
 
   it('should continue fetching when cache returns invalid JSON', async () => {
     const mockCache: CacheStrategy = {
-      get: jest.fn().mockResolvedValue('not valid json{{{'),
-      set: jest.fn().mockResolvedValue(undefined),
+      get: vi.fn().mockResolvedValue('not valid json{{{'),
+      set: vi.fn().mockResolvedValue(undefined),
     };
 
     mockWatchPage();
@@ -459,8 +470,8 @@ describe('YoutubeTranscript Caching', () => {
 
   it('should not throw when cache.set fails', async () => {
     const mockCache: CacheStrategy = {
-      get: jest.fn().mockResolvedValue(null),
-      set: jest.fn().mockRejectedValue(new Error('disk full')),
+      get: vi.fn().mockResolvedValue(null),
+      set: vi.fn().mockRejectedValue(new Error('disk full')),
     };
 
     mockWatchPage();

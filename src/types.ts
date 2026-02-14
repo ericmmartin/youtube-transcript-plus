@@ -1,31 +1,77 @@
+/** Interface for implementing custom caching strategies. */
 export interface CacheStrategy {
+  /** Retrieve a cached value by key. Returns `null` if not found or expired. */
   get(key: string): Promise<string | null>;
+  /** Store a value in the cache with an optional TTL in milliseconds. */
   set(key: string, value: string, ttl?: number): Promise<void>;
 }
 
+/** Parameters passed to custom fetch functions (`videoFetch`, `playerFetch`, `transcriptFetch`). */
 export interface FetchParams {
+  /** The URL to fetch. */
   url: string;
+  /** The requested language code (e.g., `'en'`, `'fr'`). */
   lang?: string;
+  /** The User-Agent string for the request. */
   userAgent?: string;
+  /** HTTP method — `'GET'` for watch/transcript pages, `'POST'` for the Innertube player endpoint. */
   method?: 'GET' | 'POST';
+  /** Request body (only present for POST requests). */
   body?: string;
+  /** Additional HTTP headers (e.g., `Content-Type` for the player endpoint). */
   headers?: Record<string, string>;
 }
 
+/** Configuration options for fetching transcripts. */
 export interface TranscriptConfig {
+  /** BCP 47 language code for the transcript (e.g., `'en'`, `'fr'`). */
   lang?: string;
+  /** Custom User-Agent string for HTTP requests. */
   userAgent?: string;
+  /** Custom caching strategy implementing the {@link CacheStrategy} interface. */
   cache?: CacheStrategy;
+  /** Time-to-live for cache entries in milliseconds. Defaults to 1 hour. */
   cacheTTL?: number;
+  /** Use HTTP instead of HTTPS for YouTube requests. Not recommended for production. */
   disableHttps?: boolean;
+  /** Custom fetch function for the YouTube watch page (GET request). */
   videoFetch?: (params: FetchParams) => Promise<Response>;
+  /** Custom fetch function for the transcript XML data (GET request). */
   transcriptFetch?: (params: FetchParams) => Promise<Response>;
+  /** Custom fetch function for the YouTube Innertube player API (POST request). */
   playerFetch?: (params: FetchParams) => Promise<Response>;
 }
 
+/** A single transcript segment returned by {@link fetchTranscript}. */
 export interface TranscriptResponse {
+  /** The text content of the transcript segment. */
   text: string;
+  /** Duration of the segment in seconds. */
   duration: number;
+  /** Start time of the segment in seconds from the beginning of the video. */
   offset: number;
+  /** The language code of the transcript. */
   lang: string;
+}
+
+/** Shape of a single caption track from the Innertube player response. */
+export interface CaptionTrack {
+  baseUrl?: string;
+  url?: string;
+  languageCode: string;
+  name?: { simpleText?: string };
+  kind?: string;
+}
+
+/** Shape of the Innertube player JSON response (relevant subset). */
+export interface InnertubePlayerResponse {
+  playabilityStatus?: { status?: string };
+  captions?: {
+    playerCaptionsTracklistRenderer?: {
+      captionTracks?: CaptionTrack[];
+    };
+  };
+  playerCaptionsTracklistRenderer?: {
+    captionTracks?: CaptionTrack[];
+  };
 }

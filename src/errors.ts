@@ -1,3 +1,4 @@
+/** Thrown when YouTube is rate-limiting requests from your IP address. */
 export class YoutubeTranscriptTooManyRequestError extends Error {
   constructor() {
     super(
@@ -7,6 +8,7 @@ export class YoutubeTranscriptTooManyRequestError extends Error {
   }
 }
 
+/** Thrown when the requested video is unavailable or has been removed. */
 export class YoutubeTranscriptVideoUnavailableError extends Error {
   public readonly videoId: string;
 
@@ -19,6 +21,7 @@ export class YoutubeTranscriptVideoUnavailableError extends Error {
   }
 }
 
+/** Thrown when transcripts are disabled for the video by its owner. */
 export class YoutubeTranscriptDisabledError extends Error {
   public readonly videoId: string;
 
@@ -31,6 +34,7 @@ export class YoutubeTranscriptDisabledError extends Error {
   }
 }
 
+/** Thrown when no transcripts are available for the video. */
 export class YoutubeTranscriptNotAvailableError extends Error {
   public readonly videoId: string;
 
@@ -43,9 +47,12 @@ export class YoutubeTranscriptNotAvailableError extends Error {
   }
 }
 
+/** Thrown when the transcript is not available in the requested language. */
 export class YoutubeTranscriptNotAvailableLanguageError extends Error {
   public readonly videoId: string;
+  /** The requested language code that was not available. */
   public readonly lang: string;
+  /** The language codes that are available for this video. */
   public readonly availableLangs: string[];
 
   constructor(lang: string, availableLangs: string[], videoId: string) {
@@ -61,6 +68,21 @@ export class YoutubeTranscriptNotAvailableLanguageError extends Error {
   }
 }
 
+/** Thrown when the provided `lang` option is not a valid BCP 47 language code. */
+export class YoutubeTranscriptInvalidLangError extends Error {
+  /** The invalid language code that was provided. */
+  public readonly lang: string;
+
+  constructor(lang: string) {
+    super(
+      `Invalid language code "${lang}". Please provide a valid BCP 47 language code (e.g., "en", "fr", "pt-BR").`,
+    );
+    this.name = 'YoutubeTranscriptInvalidLangError';
+    this.lang = lang;
+  }
+}
+
+/** Thrown when the provided video ID or URL is invalid. */
 export class YoutubeTranscriptInvalidVideoIdError extends Error {
   constructor() {
     super(

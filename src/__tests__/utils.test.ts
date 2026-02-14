@@ -1,17 +1,21 @@
-import { defaultFetch, retrieveVideoId, decodeXmlEntities } from '../utils';
-import { YoutubeTranscriptInvalidVideoIdError } from '../errors';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { defaultFetch, retrieveVideoId, decodeXmlEntities, validateLang } from '../utils';
+import {
+  YoutubeTranscriptInvalidVideoIdError,
+  YoutubeTranscriptInvalidLangError,
+} from '../errors';
 
 // Mock global fetch
-global.fetch = jest.fn();
+global.fetch = vi.fn();
 
 describe('defaultFetch', () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
   });
 
   it('should make GET request by default', async () => {
     const mockResponse = { ok: true, status: 200 };
-    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
 
     await defaultFetch({
       url: 'https://example.com',
@@ -30,7 +34,7 @@ describe('defaultFetch', () => {
 
   it('should make POST request with body when specified', async () => {
     const mockResponse = { ok: true, status: 200 };
-    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
 
     const testBody = JSON.stringify({ test: 'data' });
     await defaultFetch({
@@ -53,7 +57,7 @@ describe('defaultFetch', () => {
 
   it('should merge custom headers with default headers', async () => {
     const mockResponse = { ok: true, status: 200 };
-    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
 
     await defaultFetch({
       url: 'https://example.com',
@@ -78,7 +82,7 @@ describe('defaultFetch', () => {
 
   it('should not include Accept-Language header when lang is not provided', async () => {
     const mockResponse = { ok: true, status: 200 };
-    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
 
     await defaultFetch({
       url: 'https://example.com',
@@ -95,7 +99,7 @@ describe('defaultFetch', () => {
 
   it('should use default user agent when not provided', async () => {
     const mockResponse = { ok: true, status: 200 };
-    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
 
     await defaultFetch({
       url: 'https://example.com',
@@ -111,7 +115,7 @@ describe('defaultFetch', () => {
 
   it('should not include body for GET requests even if provided', async () => {
     const mockResponse = { ok: true, status: 200 };
-    (global.fetch as jest.Mock).mockResolvedValue(mockResponse);
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
 
     await defaultFetch({
       url: 'https://example.com',
@@ -188,5 +192,34 @@ describe('decodeXmlEntities', () => {
 
   it('should return plain text unchanged', () => {
     expect(decodeXmlEntities('Hello world')).toBe('Hello world');
+  });
+});
+
+describe('validateLang', () => {
+  it('should accept valid BCP 47 language codes', () => {
+    expect(() => validateLang('en')).not.toThrow();
+    expect(() => validateLang('fr')).not.toThrow();
+    expect(() => validateLang('pt-BR')).not.toThrow();
+    expect(() => validateLang('zh-Hans')).not.toThrow();
+    expect(() => validateLang('en-US')).not.toThrow();
+  });
+
+  it('should reject strings with special characters', () => {
+    expect(() => validateLang('en;drop')).toThrow(YoutubeTranscriptInvalidLangError);
+    expect(() => validateLang('en\nHost: evil.com')).toThrow(YoutubeTranscriptInvalidLangError);
+    expect(() => validateLang('<script>')).toThrow(YoutubeTranscriptInvalidLangError);
+  });
+
+  it('should reject empty strings', () => {
+    expect(() => validateLang('')).toThrow(YoutubeTranscriptInvalidLangError);
+  });
+
+  it('should include the invalid lang in the error', () => {
+    try {
+      validateLang('invalid!');
+    } catch (error) {
+      expect(error).toBeInstanceOf(YoutubeTranscriptInvalidLangError);
+      expect((error as YoutubeTranscriptInvalidLangError).lang).toBe('invalid!');
+    }
   });
 });

@@ -1,8 +1,9 @@
 import { DEFAULT_USER_AGENT, RE_YOUTUBE } from './constants';
-import { YoutubeTranscriptInvalidVideoIdError } from './errors';
+import { YoutubeTranscriptInvalidVideoIdError, YoutubeTranscriptInvalidLangError } from './errors';
 import { FetchParams } from './types';
 
 const RE_VIDEO_ID = /^[a-zA-Z0-9_-]{11}$/;
+const RE_BCP47_LANG = /^[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,8})*$/;
 
 const XML_ENTITIES: Record<string, string> = {
   '&amp;': '&',
@@ -28,6 +29,16 @@ export function retrieveVideoId(videoId: string): string {
     return matchId[1];
   }
   throw new YoutubeTranscriptInvalidVideoIdError();
+}
+
+/**
+ * Validate that a language code matches a BCP 47-like pattern.
+ * @throws {@link YoutubeTranscriptInvalidLangError} if the language code is invalid.
+ */
+export function validateLang(lang: string): void {
+  if (!RE_BCP47_LANG.test(lang)) {
+    throw new YoutubeTranscriptInvalidLangError(lang);
+  }
 }
 
 export async function defaultFetch(params: FetchParams): Promise<Response> {

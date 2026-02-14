@@ -1,5 +1,5 @@
 import { DEFAULT_USER_AGENT, RE_XML_TRANSCRIPT } from './constants';
-import { retrieveVideoId, defaultFetch, decodeXmlEntities } from './utils';
+import { retrieveVideoId, defaultFetch, decodeXmlEntities, validateLang } from './utils';
 import {
   YoutubeTranscriptVideoUnavailableError,
   YoutubeTranscriptTooManyRequestError,
@@ -7,21 +7,54 @@ import {
   YoutubeTranscriptNotAvailableError,
   YoutubeTranscriptNotAvailableLanguageError,
 } from './errors';
-import { TranscriptConfig, TranscriptResponse, FetchParams } from './types';
+import {
+  TranscriptConfig,
+  TranscriptResponse,
+  FetchParams,
+  InnertubePlayerResponse,
+  CaptionTrack,
+} from './types';
 
 /**
- * Implementation notes:
- * - Keeps the public surface identical.
- * - Internals now use YouTube Innertube `player` to discover captionTracks instead of scraping the watch HTML.
- * - Honors `lang`, custom fetch hooks (`videoFetch`, `transcriptFetch`), and optional cache strategy.
+ * Fetches YouTube video transcripts using the Innertube API.
+ *
+ * Can be used as an instance (with shared config) or via static/convenience methods.
+ *
+ * @example
+ * ```typescript
+ * // Instance usage with shared config
+ * const yt = new YoutubeTranscript({ lang: 'en' });
+ * const transcript = await yt.fetchTranscript('dQw4w9WgXcQ');
+ *
+ * // Static method
+ * const transcript = await YoutubeTranscript.fetchTranscript('dQw4w9WgXcQ', { lang: 'en' });
+ *
+ * // Convenience export
+ * const transcript = await fetchTranscript('dQw4w9WgXcQ');
+ * ```
  */
 export class YoutubeTranscript {
   constructor(private config?: TranscriptConfig) {}
 
+  /**
+   * Fetch the transcript for a YouTube video.
+   *
+   * @param videoId - A YouTube video ID (11 characters) or full YouTube URL.
+   * @returns An array of transcript segments.
+   * @throws {@link YoutubeTranscriptInvalidVideoIdError} if the video ID/URL is invalid.
+   * @throws {@link YoutubeTranscriptVideoUnavailableError} if the video is unavailable.
+   * @throws {@link YoutubeTranscriptDisabledError} if transcripts are disabled.
+   * @throws {@link YoutubeTranscriptNotAvailableError} if no transcript is available.
+   * @throws {@link YoutubeTranscriptNotAvailableLanguageError} if the requested language is unavailable.
+   * @throws {@link YoutubeTranscriptTooManyRequestError} if rate-limited by YouTube.
+   */
   async fetchTranscript(videoId: string): Promise<TranscriptResponse[]> {
     const identifier = retrieveVideoId(videoId);
 
     const lang = this.config?.lang;
+    if (lang) {
+      validateLang(lang);
+    }
     const userAgent = this.config?.userAgent ?? DEFAULT_USER_AGENT;
 
     // Cache lookup (if provided)
@@ -99,23 +132,23 @@ export class YoutubeTranscript {
       throw new YoutubeTranscriptVideoUnavailableError(identifier);
     }
 
-    const playerJson: any = await playerRes.json();
+    const playerJson = (await playerRes.json()) as InnertubePlayerResponse;
 
     const tracklist =
-      playerJson?.captions?.playerCaptionsTracklistRenderer ??
-      playerJson?.playerCaptionsTracklistRenderer;
+      playerJson.captions?.playerCaptionsTracklistRenderer ??
+      playerJson.playerCaptionsTracklistRenderer;
 
     const tracks = tracklist?.captionTracks;
 
-    const isPlayableOk = playerJson?.playabilityStatus?.status === 'OK';
+    const isPlayableOk = playerJson.playabilityStatus?.status === 'OK';
 
     // If `captions` is entirely missing, treat as "not available"
-    if (!playerJson?.captions || !tracklist) {
-      // If video is playable but captions aren’t provided, treat as "disabled"
+    if (!playerJson.captions || !tracklist) {
+      // If video is playable but captions aren't provided, treat as "disabled"
       if (isPlayableOk) {
         throw new YoutubeTranscriptDisabledError(identifier);
       }
-      // Otherwise we can’t assert they’re disabled; treat as "not available"
+      // Otherwise we can't assert they're disabled; treat as "not available"
       throw new YoutubeTranscriptNotAvailableError(identifier);
     }
 
@@ -125,18 +158,21 @@ export class YoutubeTranscript {
     }
 
     // Respect requested language or fallback to first track
-    const selectedTrack = lang ? tracks.find((t: any) => t.languageCode === lang) : tracks[0];
+    const selectedTrack: CaptionTrack | undefined = lang
+      ? tracks.find((t) => t.languageCode === lang)
+      : tracks[0];
 
     if (!selectedTrack) {
-      const available = tracks.map((t: any) => t.languageCode).filter(Boolean);
+      const available = tracks.map((t) => t.languageCode).filter(Boolean);
       throw new YoutubeTranscriptNotAvailableLanguageError(lang!, available, identifier);
     }
 
     // 4) Build transcript URL; prefer XML by stripping fmt if present
-    let transcriptURL: string = selectedTrack.baseUrl || selectedTrack.url;
-    if (!transcriptURL) {
+    const transcriptBaseURL = selectedTrack.baseUrl ?? selectedTrack.url;
+    if (!transcriptBaseURL) {
       throw new YoutubeTranscriptNotAvailableError(identifier);
     }
+    let transcriptURL = transcriptBaseURL;
     transcriptURL = transcriptURL.replace(/&fmt=[^&]+/, '');
 
     if (this.config?.disableHttps) {
@@ -183,6 +219,13 @@ export class YoutubeTranscript {
     return transcript;
   }
 
+  /**
+   * Static convenience method to fetch a transcript without creating an instance.
+   *
+   * @param videoId - A YouTube video ID (11 characters) or full YouTube URL.
+   * @param config - Optional configuration options.
+   * @returns An array of transcript segments.
+   */
   static async fetchTranscript(
     videoId: string,
     config?: TranscriptConfig,
@@ -197,5 +240,17 @@ export { InMemoryCache, FsCache } from './cache';
 
 export * from './errors';
 
-// Export the static method directly for convenience
+/**
+ * Convenience function to fetch a YouTube video transcript.
+ *
+ * @param videoId - A YouTube video ID (11 characters) or full YouTube URL.
+ * @param config - Optional configuration options.
+ * @returns An array of transcript segments.
+ *
+ * @example
+ * ```typescript
+ * import { fetchTranscript } from 'youtube-transcript-plus';
+ * const transcript = await fetchTranscript('dQw4w9WgXcQ');
+ * ```
+ */
 export const fetchTranscript = YoutubeTranscript.fetchTranscript;
