@@ -1,3 +1,4 @@
+import { describe, it, expect, beforeEach } from 'vitest';
 import { InMemoryCache } from '../../cache/in-memory-cache';
 
 describe('InMemoryCache', () => {

@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### Building and Testing
 - `npm run build` - Build the project using Rollup
-- `npm test` - Run Jest test suite with coverage
+- `npm test` - Run Vitest test suite with coverage
 - `npm run test:watch` - Run tests in watch mode
 - `npm run format` - Format code using Prettier
 
@@ -38,7 +38,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Type Definitions (`src/types.ts`)**
 - `TranscriptConfig` - Configuration options
-- `TranscriptResponse` - Individual transcript segment
+- `TranscriptSegment` - Individual transcript segment (alias `TranscriptResponse` deprecated)
 - `CacheStrategy` - Interface for caching implementations
 
 **Utilities (`src/utils.ts`)**
@@ -57,7 +57,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **Custom Strategy Support:**
 - Implement `CacheStrategy` interface with `get()` and `set()` methods
-- Cache keys format: `yt:transcript:{videoId}:{lang}`
+- Cache keys format: `yt:transcript:{videoId}:{lang}` (or `yt:transcript+details:{videoId}:{lang}` when `videoDetails: true`)
 
 ### Configuration Options
 
@@ -78,15 +78,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **TypeScript (`tsconfig.json`)**
 - Target ES2015, ESNext modules
 - Declarations generated in `dist/`
-- Strict mode disabled for compatibility
+- Strict mode enabled
 
 **Rollup (`rollup.config.js`)**
 - ESM output format
 - TypeScript compilation with declaration generation
 - External dependencies: `fs/promises`, `path`
 
-**Jest (`jest.config.js`)**
-- ts-jest preset for TypeScript support
+**Vitest (`vitest.config.ts`)**
+- TypeScript support via vitest
 - Coverage reports in `coverage/`
 - Test pattern: `**/*.test.ts`
 

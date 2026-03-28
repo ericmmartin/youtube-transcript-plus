@@ -1,5 +1,5 @@
-import fs from 'fs/promises';
-import path from 'path';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import { CacheStrategy } from '../types';
 import { DEFAULT_CACHE_TTL } from '../constants';
 
@@ -7,11 +7,29 @@ function sanitizeKey(key: string): string {
   return key.replace(/[^a-zA-Z0-9_-]/g, '_');
 }
 
+/**
+ * File-system-based cache implementation.
+ *
+ * Each entry is stored as a JSON file in the specified directory.
+ * Expired entries are automatically deleted when accessed.
+ *
+ * @example
+ * ```typescript
+ * import { fetchTranscript, FsCache } from 'youtube-transcript-plus';
+ * const transcript = await fetchTranscript('dQw4w9WgXcQ', {
+ *   cache: new FsCache('./my-cache-dir', 86400000), // 1 day TTL
+ * });
+ * ```
+ */
 export class FsCache implements CacheStrategy {
   private cacheDir: string;
   private defaultTTL: number;
   private ready: Promise<void>;
 
+  /**
+   * @param cacheDir - Directory to store cache files. Created automatically if it doesn't exist.
+   * @param defaultTTL - Default time-to-live in milliseconds. Defaults to 1 hour.
+   */
   constructor(cacheDir = './cache', defaultTTL = DEFAULT_CACHE_TTL) {
     this.cacheDir = cacheDir;
     this.defaultTTL = defaultTTL;

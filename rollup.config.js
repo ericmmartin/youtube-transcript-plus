@@ -7,9 +7,15 @@ export default {
       useTsconfigDeclarationDir: true,
     }),
   ],
-  output: {
-    file: 'dist/youtube-transcript-plus.js',
-    format: 'esm',
-  },
-  external: ['fs/promises', 'path'],
+  output: [
+    {
+      file: 'dist/youtube-transcript-plus.mjs',
+      format: 'esm',
+    },
+    {
+      file: 'dist/youtube-transcript-plus.cjs',
+      format: 'cjs',
+    },
+  ],
+  external: ['node:fs/promises', 'node:path'],
 };

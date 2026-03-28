@@ -1,0 +1,25 @@
+{
+  "playabilityStatus": { "status": "OK" },
+  "captions": {
+    "playerCaptionsTracklistRenderer": {
+      "captionTracks": [
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?lang=en&v=TESTVIDEOID",
+          "languageCode": "en",
+          "name": { "simpleText": "English" }
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?lang=es&v=TESTVIDEOID",
+          "languageCode": "es",
+          "name": { "simpleText": "Spanish (auto-generated)" },
+          "kind": "asr"
+        },
+        {
+          "baseUrl": "https://www.youtube.com/api/timedtext?lang=fr&v=TESTVIDEOID",
+          "languageCode": "fr",
+          "name": { "simpleText": "French" }
+        }
+      ]
+    }
+  }
+}

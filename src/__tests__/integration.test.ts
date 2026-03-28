@@ -1,3 +1,4 @@
+import { describe, it, expect } from 'vitest';
 import { YoutubeTranscript } from '../index';
 
 const runIntegration = process.env.RUN_INTEGRATION_TESTS === 'true';
