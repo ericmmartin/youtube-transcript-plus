@@ -8,7 +8,7 @@ A Node.js library to fetch transcripts from YouTube videos. This package uses Yo
 
 ## Requirements
 
-- Node.js >= 20.0.0
+- Node.js >= 20.0.0 (Node 20.x reaches EOL in September 2026)
 
 ## Installation
 

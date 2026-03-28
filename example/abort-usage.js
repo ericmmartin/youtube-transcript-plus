@@ -3,8 +3,8 @@ import { fetchTranscript } from 'youtube-transcript-plus';
 async function main() {
   const controller = new AbortController();
 
-  // Cancel the request after 5 seconds
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  // Cancel the request after 200ms
+  const timeout = setTimeout(() => controller.abort(), 200);
 
   try {
     const videoId = 'dQw4w9WgXcQ';
