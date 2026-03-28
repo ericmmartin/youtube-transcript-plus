@@ -6,6 +6,10 @@ A Node.js library to fetch transcripts from YouTube videos. This package uses Yo
 
 **Note:** This project was originally forked from [https://github.com/Kakulukian/youtube-transcript](https://github.com/Kakulukian/youtube-transcript).
 
+## Requirements
+
+- Node.js >= 20.0.0
+
 ## Installation
 
 ```bash
