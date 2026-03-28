@@ -51,6 +51,10 @@ function formatVttTimestamp(seconds: number): string {
  * import { fetchTranscript, toSRT } from 'youtube-transcript-plus';
  * const transcript = await fetchTranscript('dQw4w9WgXcQ');
  * const srt = toSRT(transcript);
+ *
+ * // With videoDetails enabled, use result.segments:
+ * const result = await fetchTranscript('dQw4w9WgXcQ', { videoDetails: true });
+ * const srt2 = toSRT(result.segments);
  * ```
  */
 export function toSRT(segments: TranscriptSegment[]): string {
@@ -74,6 +78,10 @@ export function toSRT(segments: TranscriptSegment[]): string {
  * import { fetchTranscript, toVTT } from 'youtube-transcript-plus';
  * const transcript = await fetchTranscript('dQw4w9WgXcQ');
  * const vtt = toVTT(transcript);
+ *
+ * // With videoDetails enabled, use result.segments:
+ * const result = await fetchTranscript('dQw4w9WgXcQ', { videoDetails: true });
+ * const vtt2 = toVTT(result.segments);
  * ```
  */
 export function toVTT(segments: TranscriptSegment[]): string {
@@ -100,6 +108,10 @@ export function toVTT(segments: TranscriptSegment[]): string {
  * const transcript = await fetchTranscript('dQw4w9WgXcQ');
  * const text = toPlainText(transcript);
  * const paragraph = toPlainText(transcript, ' ');
+ *
+ * // With videoDetails enabled, use result.segments:
+ * const result = await fetchTranscript('dQw4w9WgXcQ', { videoDetails: true });
+ * const text2 = toPlainText(result.segments);
  * ```
  */
 export function toPlainText(segments: TranscriptSegment[], separator = '\n'): string {

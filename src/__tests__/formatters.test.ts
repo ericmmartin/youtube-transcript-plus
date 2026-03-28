@@ -34,7 +34,7 @@ describe('toSRT', () => {
   });
 
   it('should handle timestamps over an hour', () => {
-    const longSegments: TranscriptResponse[] = [
+    const longSegments: TranscriptSegment[] = [
       { text: 'Late segment', duration: 5.0, offset: 3723.456, lang: 'en' },
     ];
     const srt = toSRT(longSegments);
@@ -73,7 +73,7 @@ describe('toVTT', () => {
   });
 
   it('should handle timestamps over an hour', () => {
-    const longSegments: TranscriptResponse[] = [
+    const longSegments: TranscriptSegment[] = [
       { text: 'Late segment', duration: 5.0, offset: 3723.456, lang: 'en' },
     ];
     const vtt = toVTT(longSegments);

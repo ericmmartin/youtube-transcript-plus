@@ -192,6 +192,10 @@ export class YoutubeTranscript {
    * containing both video metadata and transcript segments. Otherwise returns an array of
    * {@link TranscriptSegment} objects.
    *
+   * **Note:** The instance method returns a union type because `videoDetails` is set at
+   * construction time. For automatic type narrowing, use the static method or the
+   * `fetchTranscript` convenience export instead.
+   *
    * @param videoId - A YouTube video ID (11 characters) or full YouTube URL.
    * @returns An array of transcript segments, or a TranscriptResult if `videoDetails` is enabled.
    * @throws {@link YoutubeTranscriptInvalidVideoIdError} if the video ID/URL is invalid.
