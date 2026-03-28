@@ -354,10 +354,7 @@ export class YoutubeTranscript {
     videoId: string,
     config: TranscriptConfig & { videoDetails: true },
   ): Promise<TranscriptResult>;
-  static fetchTranscript(
-    videoId: string,
-    config: TranscriptConfig,
-  ): Promise<TranscriptSegment[]>;
+  static fetchTranscript(videoId: string, config: TranscriptConfig): Promise<TranscriptSegment[]>;
   static async fetchTranscript(
     videoId: string,
     config?: TranscriptConfig,

@@ -7,10 +7,7 @@ import {
   isRetryableStatus,
   fetchWithRetry,
 } from '../utils';
-import {
-  YoutubeTranscriptInvalidVideoIdError,
-  YoutubeTranscriptInvalidLangError,
-} from '../errors';
+import { YoutubeTranscriptInvalidVideoIdError, YoutubeTranscriptInvalidLangError } from '../errors';
 
 // Mock global fetch
 global.fetch = vi.fn();
