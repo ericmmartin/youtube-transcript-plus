@@ -1,7 +1,11 @@
 name: Release
 
 # Publishes to npm when a GitHub Release is published, or on manual dispatch.
-# Requires an NPM_TOKEN secret (an npm automation token) in the repository.
+#
+# Authentication is via npm trusted publishing (OIDC) — there is no NPM_TOKEN
+# secret and nothing to rotate. The trusted publisher is registered on npm
+# against this repo, this workflow filename, and the `npm` environment below;
+# all four must keep matching or the publish will fail to authenticate.
 on:
   release:
     types: [published]
@@ -23,9 +27,9 @@ jobs:
     name: Publish to npm
     runs-on: ubuntu-latest
 
-    # `id-token: write` is what lets npm mint a provenance attestation binding
-    # the published tarball to this workflow and commit. Without it, publishing
-    # with --provenance fails.
+    # `id-token: write` is what mints the OIDC token npm exchanges for publish
+    # rights, and what binds the provenance attestation to this workflow and
+    # commit. Without it there is no way to authenticate at all.
     permissions:
       contents: read
       id-token: write
@@ -80,11 +84,13 @@ jobs:
       - name: Show tarball contents
         run: npm pack --dry-run
 
+      # No auth env: the npm CLI detects the Actions OIDC environment and
+      # exchanges it for short-lived publish credentials on its own. Provenance
+      # is generated automatically under trusted publishing, but the flag is
+      # kept so the attestation is requested explicitly rather than implied.
       - name: Publish
         if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
-        run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance
 
       - name: Dry run (no publish)
         if: github.event_name == 'workflow_dispatch' && inputs.dry_run
