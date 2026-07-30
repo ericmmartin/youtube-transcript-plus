@@ -1,0 +1,42 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(deps)'
+      prefix-development: 'chore(deps-dev)'
+      include: scope
+    labels:
+      - dependencies
+    groups:
+      # Everything here is a devDependency, so batch the routine bumps into one
+      # PR per week instead of five. Major bumps stay separate so tooling
+      # upgrades like ESLint or Vitest get reviewed on their own.
+      dev-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+      time: '07:00'
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: 'chore(ci)'
+      include: scope
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      actions:
+        patterns:
+          - '*'

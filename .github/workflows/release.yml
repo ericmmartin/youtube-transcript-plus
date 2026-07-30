@@ -1,0 +1,88 @@
+name: Release
+
+# Publishes to npm when a GitHub Release is published, or on manual dispatch.
+# Requires an NPM_TOKEN secret (an npm automation token) in the repository.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Run every step but skip the actual npm publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    # `id-token: write` is what lets npm mint a provenance attestation binding
+    # the published tarball to this workflow and commit. Without it, publishing
+    # with --provenance fails.
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/youtube-transcript-plus
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      # Re-run the full gate here rather than trusting that CI passed on the
+      # commit — this is the last point before an immutable publish.
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      # Guards against tagging a release whose package.json was never bumped.
+      - name: Verify tag matches package.json version
+        if: github.event_name == 'release'
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "package.json: $PKG_VERSION"
+          echo "git tag:      $TAG_VERSION"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Verify version is not already published
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if npm view "youtube-transcript-plus@$PKG_VERSION" version >/dev/null 2>&1; then
+            echo "::error::Version $PKG_VERSION is already published to npm"
+            exit 1
+          fi
+
+      - name: Show tarball contents
+        run: npm pack --dry-run
+
+      - name: Publish
+        if: github.event_name == 'release' || inputs.dry-run == false
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Dry run (no publish)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry-run
+        run: echo "Dry run complete. Re-run with dry-run unchecked to publish."
