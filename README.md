@@ -1,6 +1,8 @@
 # youtube-transcript-plus
 
 [![npm version](https://badge.fury.io/js/youtube-transcript-plus.svg)](https://badge.fury.io/js/youtube-transcript-plus)
+[![CI](https://github.com/ericmmartin/youtube-transcript-plus/actions/workflows/ci.yml/badge.svg)](https://github.com/ericmmartin/youtube-transcript-plus/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/ericmmartin/youtube-transcript-plus/badge)](https://scorecard.dev/viewer/?uri=github.com/ericmmartin/youtube-transcript-plus)
 
 A Node.js library to fetch transcripts from YouTube videos. This package uses YouTube's unofficial API, so it may break if YouTube changes its internal structure.
 
@@ -393,6 +395,17 @@ The library throws the following errors:
 - **`YoutubeTranscriptTooManyRequestError`**: YouTube is rate-limiting requests from your IP.
 - **`YoutubeTranscriptInvalidVideoIdError`**: The provided video ID or URL is invalid.
 - **`YoutubeTranscriptInvalidLangError`**: The provided language code is not a valid BCP 47 code. Properties: `lang`.
+
+## Supply Chain
+
+Releases are published to npm from a GitHub Actions workflow with
+[npm provenance](https://docs.npmjs.com/generating-provenance-statements), so each
+published tarball is cryptographically linked to the commit and workflow run that
+built it. You can verify the signatures of your installed dependencies with:
+
+```bash
+npm audit signatures
+```
 
 ## Feature Requests
 

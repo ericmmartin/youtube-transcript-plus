@@ -1,0 +1,97 @@
+name: Release
+
+# Publishes to npm when a GitHub Release is published, or on manual dispatch.
+#
+# Authentication is via npm trusted publishing (OIDC) — there is no NPM_TOKEN
+# secret and nothing to rotate. The trusted publisher is registered on npm
+# against this repo, this workflow filename, and the `npm` environment below;
+# all four must keep matching or the publish will fail to authenticate.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      # Underscore, not a hyphen: Actions expressions parse `inputs.dry-run`
+      # as subtraction, so a hyphenated input name is unreferenceable via dot
+      # notation.
+      dry_run:
+        description: 'Run every step but skip the actual npm publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+
+    # `id-token: write` is what mints the OIDC token npm exchanges for publish
+    # rights, and what binds the provenance attestation to this workflow and
+    # commit. Without it there is no way to authenticate at all.
+    permissions:
+      contents: read
+      id-token: write
+
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/youtube-transcript-plus
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Use Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.x
+          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
+
+      - run: npm ci
+
+      # Re-run the full gate here rather than trusting that CI passed on the
+      # commit — this is the last point before an immutable publish.
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+      # Guards against tagging a release whose package.json was never bumped.
+      - name: Verify tag matches package.json version
+        if: github.event_name == 'release'
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "package.json: $PKG_VERSION"
+          echo "git tag:      $TAG_VERSION"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match package.json version $PKG_VERSION"
+            exit 1
+          fi
+
+      - name: Verify version is not already published
+        run: |
+          PKG_VERSION="$(node -p "require('./package.json').version")"
+          if npm view "youtube-transcript-plus@$PKG_VERSION" version >/dev/null 2>&1; then
+            echo "::error::Version $PKG_VERSION is already published to npm"
+            exit 1
+          fi
+
+      - name: Show tarball contents
+        run: npm pack --dry-run
+
+      # No auth env: the npm CLI detects the Actions OIDC environment and
+      # exchanges it for short-lived publish credentials on its own. Provenance
+      # is generated automatically under trusted publishing, but the flag is
+      # kept so the attestation is requested explicitly rather than implied.
+      - name: Publish
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
+        run: npm publish --provenance
+
+      - name: Dry run (no publish)
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: echo "Dry run complete. Re-run with dry_run unchecked to publish."
