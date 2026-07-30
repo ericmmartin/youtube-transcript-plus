@@ -396,7 +396,18 @@ The library throws the following errors:
 
 ## Feature Requests
 
-Have a feature idea? [Open an issue](https://github.com/ericmmartin/youtube-transcript-plus/issues/new) and let us know!
+Have a feature idea? [Open an issue](https://github.com/ericmmartin/youtube-transcript-plus/issues/new/choose) and let us know!
+
+## Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for development
+setup, testing conventions, and pull request guidelines. Participation is governed
+by our [Code of Conduct](CODE_OF_CONDUCT.md).
+
+## Security
+
+To report a security vulnerability, please follow the private disclosure process
+in [SECURITY.md](SECURITY.md) rather than opening a public issue.
 
 ## License
 

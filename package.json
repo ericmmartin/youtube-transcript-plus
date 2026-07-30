@@ -6,6 +6,7 @@
   "main": "dist/youtube-transcript-plus.cjs",
   "module": "dist/youtube-transcript-plus.mjs",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
       "import": {
@@ -32,7 +33,15 @@
   "author": "ericmmartin",
   "keywords": [
     "youtube",
-    "transcript"
+    "transcript",
+    "transcripts",
+    "captions",
+    "subtitles",
+    "closed-captions",
+    "innertube",
+    "srt",
+    "vtt",
+    "typescript"
   ],
   "license": "MIT",
   "lint-staged": {
