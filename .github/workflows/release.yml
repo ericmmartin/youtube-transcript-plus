@@ -7,7 +7,10 @@ on:
     types: [published]
   workflow_dispatch:
     inputs:
-      dry-run:
+      # Underscore, not a hyphen: Actions expressions parse `inputs.dry-run`
+      # as subtraction, so a hyphenated input name is unreferenceable via dot
+      # notation.
+      dry_run:
         description: 'Run every step but skip the actual npm publish'
         type: boolean
         default: true
@@ -78,11 +81,11 @@ jobs:
         run: npm pack --dry-run
 
       - name: Publish
-        if: github.event_name == 'release' || inputs.dry-run == false
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && !inputs.dry_run)
         run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry run (no publish)
-        if: github.event_name == 'workflow_dispatch' && inputs.dry-run
-        run: echo "Dry run complete. Re-run with dry-run unchecked to publish."
+        if: github.event_name == 'workflow_dispatch' && inputs.dry_run
+        run: echo "Dry run complete. Re-run with dry_run unchecked to publish."
