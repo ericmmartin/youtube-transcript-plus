@@ -1,0 +1,44 @@
+name: Feature request
+description: Suggest a new capability or improvement
+labels: ['enhancement']
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: >-
+        Describe the use case rather than the implementation. What are you
+        building, and where does the library get in your way today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: >-
+        If you have an API in mind, sketch it here — a config option, a new
+        exported function, a new formatter, etc.
+      render: typescript
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: >-
+        Have you worked around this already, for example with a custom
+        `transcriptFetch` or a custom `CacheStrategy`?
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues for a duplicate
+          required: true
+        - label: I would be willing to open a pull request for this
+          required: false
