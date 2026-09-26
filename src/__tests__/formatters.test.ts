@@ -106,3 +106,13 @@ describe('toPlainText', () => {
     expect(toPlainText([])).toBe('');
   });
 });
+
+describe('timestamp rounding', () => {
+  it('carries a millisecond value that rounds to 1000 into the seconds field', () => {
+    const rounding: TranscriptSegment[] = [
+      { text: 'x', duration: 0.0001, offset: 59.9996, lang: 'en' },
+    ];
+    expect(toSRT(rounding)).toContain('00:01:00,000 --> 00:01:00,000');
+    expect(toVTT(rounding)).toContain('00:01:00.000 --> 00:01:00.000');
+  });
+});
