@@ -1,43 +1,35 @@
 import { TranscriptSegment } from './types';
 
 /**
- * Format seconds as an SRT timestamp: `HH:MM:SS,mmm`
- * SRT uses comma as the decimal separator per specification.
+ * Format seconds as `HH:MM:SS<sep>mmm`. Rounds to whole milliseconds before
+ * splitting into fields, so e.g. 1.9996s becomes `00:00:02,000` rather than
+ * carrying a 4-digit `1000` millisecond field.
  */
-function formatSrtTimestamp(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.round((seconds % 1) * 1000);
+function formatTimestamp(seconds: number, separator: string): string {
+  const totalMs = Math.round(seconds * 1000);
+  const h = Math.floor(totalMs / 3600000);
+  const m = Math.floor((totalMs % 3600000) / 60000);
+  const s = Math.floor((totalMs % 60000) / 1000);
+  const ms = totalMs % 1000;
   return (
     String(h).padStart(2, '0') +
     ':' +
     String(m).padStart(2, '0') +
     ':' +
     String(s).padStart(2, '0') +
-    ',' +
+    separator +
     String(ms).padStart(3, '0')
   );
 }
 
-/**
- * Format seconds as a VTT timestamp: `HH:MM:SS.mmm`
- * VTT uses period as the decimal separator per specification.
- */
+/** SRT uses comma as the decimal separator per specification. */
+function formatSrtTimestamp(seconds: number): string {
+  return formatTimestamp(seconds, ',');
+}
+
+/** VTT uses period as the decimal separator per specification. */
 function formatVttTimestamp(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  const ms = Math.round((seconds % 1) * 1000);
-  return (
-    String(h).padStart(2, '0') +
-    ':' +
-    String(m).padStart(2, '0') +
-    ':' +
-    String(s).padStart(2, '0') +
-    '.' +
-    String(ms).padStart(3, '0')
-  );
+  return formatTimestamp(seconds, '.');
 }
 
 /**

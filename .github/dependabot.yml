@@ -1,0 +1,47 @@
+version: 2
+
+# Tuned for low noise: monthly runs, one grouped PR per ecosystem for routine
+# bumps, and a cooldown so brand-new releases (the riskiest window for a
+# compromised package) settle before they're proposed.
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: 'chore(deps)'
+    labels:
+      - dependencies
+    ignore:
+      # typescript-eslint caps its supported TypeScript range, so TS majors
+      # can't land until it catches up. Mirrors the reject rule in .ncurc.json.
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+    groups:
+      # Everything here is a devDependency. Majors stay separate so tooling
+      # upgrades like ESLint or Vitest get reviewed on their own.
+      dev-minor-and-patch:
+        dependency-type: development
+        update-types:
+          - minor
+          - patch
+
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: 'chore(ci)'
+    labels:
+      - dependencies
+      - github-actions
+    groups:
+      actions:
+        patterns:
+          - '*'
