@@ -20,6 +20,10 @@ updates:
       # can't land until it catches up. Mirrors the reject rule in .ncurc.json.
       - dependency-name: typescript
         update-types: ['version-update:semver-major']
+      # nock 15 requires Node >= 22.20, but we still test on Node 20 until v3.0.0
+      # (no earlier than January 2027). Remove this when Node 20 is dropped.
+      - dependency-name: nock
+        update-types: ['version-update:semver-major']
     groups:
       # Everything here is a devDependency. Majors stay separate so tooling
       # upgrades like ESLint or Vitest get reviewed on their own.

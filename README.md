@@ -10,7 +10,10 @@ A Node.js library to fetch transcripts from YouTube videos. This package uses Yo
 
 ## Requirements
 
-- Node.js >= 20.0.0 (Node 20.x reaches EOL in September 2026)
+- Node.js >= 20.0.0
+
+> [!WARNING]
+> **Node.js 20 support is deprecated.** Node 20 reached end-of-life on April 30, 2026. It will be dropped in the next major release (v3.0.0), which will ship no earlier than January 1, 2027 and require Node.js >= 22. Until then, v2.x keeps working on Node 20.
 
 ## Installation
 
