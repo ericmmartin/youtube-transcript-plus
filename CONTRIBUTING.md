@@ -5,7 +5,7 @@ are genuinely welcome — bug fixes, tests, docs, and new features all help.
 
 ## Getting started
 
-Requires Node.js >= 20.
+Requires Node.js >= 20. Node 20 support is deprecated and will be dropped in v3.0.0 (no earlier than January 2027); use Node 22 or later for development.
 
 ```bash
 git clone https://github.com/ericmmartin/youtube-transcript-plus.git

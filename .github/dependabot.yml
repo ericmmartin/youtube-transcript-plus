@@ -17,8 +17,15 @@ updates:
       - dependencies
     ignore:
       # typescript-eslint caps its supported TypeScript range, so TS majors
-      # can't land until it catches up. Mirrors the reject rule in .ncurc.json.
+      # can't land until it catches up. Mirrors the reject rule in .ncurc.cjs.
       - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+      # nock 15 and undici 8 require Node >= 22, but we still support Node 20
+      # until v3.0.0 (no earlier than January 2027). Remove these when Node 20
+      # is dropped. Mirrors the minor-only target in .ncurc.cjs.
+      - dependency-name: nock
+        update-types: ['version-update:semver-major']
+      - dependency-name: undici
         update-types: ['version-update:semver-major']
     groups:
       # Everything here is a devDependency. Majors stay separate so tooling
