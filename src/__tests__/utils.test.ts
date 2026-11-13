@@ -8,6 +8,7 @@ import {
   fetchWithRetry,
 } from '../utils';
 import { YoutubeTranscriptInvalidVideoIdError, YoutubeTranscriptInvalidLangError } from '../errors';
+import { MAX_VIDEO_INPUT_LENGTH } from '../constants';
 
 // Mock global fetch
 global.fetch = vi.fn();
@@ -169,6 +170,31 @@ describe('retrieveVideoId', () => {
     expect(retrieveVideoId('abc_def-123')).toBe('abc_def-123');
     expect(retrieveVideoId('___________')).toBe('___________');
     expect(retrieveVideoId('-----------')).toBe('-----------');
+  });
+
+  describe('input length limit', () => {
+    const url = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+    const padTo = (length: number) => `${url}&t=${'0'.repeat(length - url.length - 3)}`;
+
+    it('should reject long inputs that would cause slow regex backtracking', () => {
+      // ~96 KiB of "watch?" with no "v=" took seconds before the length limit
+      const input = 'watch?'.repeat(16384);
+      const start = performance.now();
+      expect(() => retrieveVideoId(input)).toThrow(YoutubeTranscriptInvalidVideoIdError);
+      expect(performance.now() - start).toBeLessThan(250);
+    });
+
+    it('should reject a URL longer than MAX_VIDEO_INPUT_LENGTH', () => {
+      const input = padTo(MAX_VIDEO_INPUT_LENGTH + 1);
+      expect(input).toHaveLength(MAX_VIDEO_INPUT_LENGTH + 1);
+      expect(() => retrieveVideoId(input)).toThrow(YoutubeTranscriptInvalidVideoIdError);
+    });
+
+    it('should accept a URL exactly MAX_VIDEO_INPUT_LENGTH long', () => {
+      const input = padTo(MAX_VIDEO_INPUT_LENGTH);
+      expect(input).toHaveLength(MAX_VIDEO_INPUT_LENGTH);
+      expect(retrieveVideoId(input)).toBe('dQw4w9WgXcQ');
+    });
   });
 });
 

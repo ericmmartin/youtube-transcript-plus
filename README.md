@@ -335,7 +335,7 @@ import type {
 
 Fetches the transcript for a YouTube video.
 
-- **`videoId`**: The YouTube video ID or URL.
+- **`videoId`**: The YouTube video ID or URL. Inputs longer than 2048 characters are rejected with `YoutubeTranscriptInvalidVideoIdError`.
 - **`config`**: Optional configuration object with the following properties:
   - **`lang`**: BCP 47 language code (e.g., `'en'`, `'fr'`, `'pt-BR'`) for the transcript.
   - **`userAgent`**: Custom User-Agent string.
