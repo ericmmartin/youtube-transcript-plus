@@ -1,4 +1,4 @@
-import { DEFAULT_USER_AGENT, RE_YOUTUBE } from './constants';
+import { DEFAULT_USER_AGENT, MAX_VIDEO_INPUT_LENGTH, RE_YOUTUBE } from './constants';
 import { YoutubeTranscriptInvalidVideoIdError, YoutubeTranscriptInvalidLangError } from './errors';
 import { FetchParams } from './types';
 
@@ -23,6 +23,10 @@ export function decodeXmlEntities(text: string): string {
 export function retrieveVideoId(videoId: string): string {
   if (RE_VIDEO_ID.test(videoId)) {
     return videoId;
+  }
+  // Checked before RE_YOUTUBE, whose matching time is quadratic in input length.
+  if (videoId.length > MAX_VIDEO_INPUT_LENGTH) {
+    throw new YoutubeTranscriptInvalidVideoIdError();
   }
   const matchId = videoId.match(RE_YOUTUBE);
   if (matchId && matchId.length) {
